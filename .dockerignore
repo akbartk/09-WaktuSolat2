@@ -1,0 +1,41 @@
+# Ignore node_modules in project directory (we use volume)
+node_modules
+
+# Ignore build artifacts
+build
+dist
+
+# Ignore development files
+.git
+.github
+.vscode
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore Docker files (not needed inside container)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Ignore documentation
+README.md
+LICENSE
+*.md
+
+# Ignore test files
+__tests__
+*.test.js
+*.spec.js
+
+# Ignore OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,909 @@
+# .windsurfrules / .cursorrules
+
+## Gambaran Proyek
+Proyek ini adalah **Aplikasi Jadwal Sholat** yang menyediakan jadwal sholat Islam yang akurat berdasarkan lokasi real-time pengguna. Aplikasi dirancang untuk **100% dinamis tanpa nilai hardcode** untuk fleksibilitas dan akurasi maksimal. 
+
+**Semua development dan deployment berjalan dalam kontainer Docker** dengan docker-compose untuk konsistensi lingkungan dan kemudahan pengelolaan dependencies.
+
+## Arsitektur Containerized Development
+
+### 1. Struktur Proyek Docker
+```
+jadwal-sholat/
+├── docker-compose.yml
+├── docker-compose.dev.yml
+├── Dockerfile.dev
+├── Dockerfile.prod
+├── .dockerignore
+├── volumes/
+│   ├── node_modules/     # Persistent npm modules
+│   ├── build/            # Build output
+│   └── cache/            # Build cache
+├── src/
+│   ├── components/
+│   ├── hooks/
+│   ├── utils/
+│   └── App.jsx
+├── public/
+└── package.json
+```
+
+### 2. Docker Compose Configuration
+```yaml
+# docker-compose.yml (Production)
+version: '3.8'
+services:
+  jadwal-sholat-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./volumes/build:/app/build:rw
+      - ./volumes/cache:/app/.cache:rw
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Jakarta
+    restart: unless-stopped
+    networks:
+      - jadwal-sholat-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./volumes/build:/usr/share/nginx/html:ro
+      - ./volumes/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - jadwal-sholat-app
+    restart: unless-stopped
+    networks:
+      - jadwal-sholat-network
+
+networks:
+  jadwal-sholat-network:
+    driver: bridge
+
+volumes:
+  node_modules:
+  build_cache:
+```
+
+### 3. Development Docker Compose
+```yaml
+# docker-compose.dev.yml
+version: '3.8'
+services:
+  jadwal-sholat-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+      - "3001:3001"  # Hot reload websocket
+    volumes:
+      # Bind mount untuk development
+      - ./src:/app/src:rw
+      - ./public:/app/public:rw
+      - ./package.json:/app/package.json:rw
+      - ./package-lock.json:/app/package-lock.json:rw
+      - ./tailwind.config.js:/app/tailwind.config.js:rw
+      # Persistent volumes
+      - ./volumes/node_modules:/app/node_modules:rw
+      - ./volumes/cache:/app/.cache:rw
+      - ./volumes/build:/app/build:rw
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - TZ=Asia/Jakarta
+    command: npm run dev
+    stdin_open: true
+    tty: true
+    networks:
+      - jadwal-sholat-dev-network
+
+networks:
+  jadwal-sholat-dev-network:
+    driver: bridge
+```
+
+### 4. Dockerfile Development
+```dockerfile
+# Dockerfile.dev
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies termasuk shadcn/ui dan tools
+RUN apk add --no-cache git curl
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies ke volume
+RUN npm ci --cache /app/.cache
+
+# Copy source code
+COPY . .
+
+# Expose ports
+EXPOSE 3000 3001
+
+# Development command
+CMD ["npm", "run", "dev"]
+```
+
+### 5. Dockerfile Production
+```dockerfile
+# Dockerfile.prod
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci --only=production --cache /app/.cache
+
+# Copy source dan build
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built app
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+## Prinsip Utama
+
+### 1. Kebijakan Tanpa Hardcode
+- **TIDAK BOLEH** hardcode lokasi, kota, atau koordinat
+- **TIDAK BOLEH** waktu sholat atau tanggal statis
+- **TIDAK BOLEH** asumsi timezone tetap
+- Semua data harus diambil secara dinamis dari API atau dihitung real-time
+
+### 2. Arsitektur Location-First
+- **Utama**: HTML5 Geolocation API untuk lokasi berbasis GPS
+- **Fallback**: Layanan geolocation berbasis IP
+- **Terakhir**: Pengguna dapat memasukkan lokasi manual
+- Selalu tampilkan koordinat dan transparansi sumber lokasi
+
+### 3. Strategi Integrasi Multi-API
+- **Jadwal Sholat**: Gunakan API yang location-aware (AlAdhan, MyQuran, dll.)
+- **Kalender Hijriah**: Konversi tanggal Islam real-time
+- **Geolocation**: Layanan fallback ganda untuk reliabilitas
+- **Waktu**: Penanganan timezone yang tepat berdasarkan lokasi pengguna
+
+### 4. Containerized Development
+- **Semua operasi dalam Docker**: compile, install packages, testing
+- **Persistent volumes**: untuk node_modules, build cache, dan output
+- **Bind mounts**: untuk source code development
+- **Hot reload**: untuk development efficiency dalam container
+
+## Persyaratan Teknis
+
+## Persyaratan Teknis
+
+### Framework Frontend
+- **React** dengan hooks (useState, useEffect)
+- **Tailwind CSS** untuk styling (hanya core utility classes)
+- **shadcn/ui** untuk komponen UI yang konsisten dan accessible
+- **Vite** atau **Create React App** untuk bundling dalam container
+- **Desain responsif** untuk mobile dan desktop dengan pendekatan mobile-first
+
+## Port Management & Availability Check
+
+### 1. Automatic Port Detection Scripts
+```bash
+# scripts/check-ports.sh
+#!/bin/bash
+echo "🔍 Checking port availability..."
+
+check_port() {
+    local port=$1
+    local service=$2
+    
+    if command -v netstat >/dev/null 2>&1; then
+        if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
+            echo "❌ Port $port ($service) is already in use"
+            return 1
+        else
+            echo "✅ Port $port ($service) is available"
+            return 0
+        fi
+    elif command -v ss >/dev/null 2>&1; then
+        if ss -tlnp | grep -q ":$port "; then
+            echo "❌ Port $port ($service) is already in use" 
+            return 1
+        else
+            echo "✅ Port $port ($service) is available"
+            return 0
+        fi
+    else
+        echo "⚠️  Cannot check port $port - netstat/ss not available"
+        return 0
+    fi
+}
+
+# Check default ports
+check_port 3000 "Development App"
+check_port 3001 "Hot Reload WebSocket" 
+check_port 80 "HTTP Nginx"
+check_port 443 "HTTPS Nginx"
+
+echo ""
+echo "💡 If ports are in use, update your .env file:"
+echo "DEV_PORT=4000"
+echo "DEV_WS_PORT=4001" 
+echo "HTTP_PORT=8080"
+echo "HTTPS_PORT=8443"
+```
+
+```bash
+# scripts/find-available-port.sh
+#!/bin/bash
+find_available_port() {
+    local start_port=${1:-3000}
+    local max_attempts=50
+    
+    for ((i=0; i<max_attempts; i++)); do
+        local port=$((start_port + i))
+        
+        if ! netstat -tlnp 2>/dev/null | grep -q ":$port " && \
+           ! ss -tlnp 2>/dev/null | grep -q ":$port "; then
+            echo "$port"
+            return 0
+        fi
+    done
+    
+    echo "No available port found starting from $start_port" >&2
+    return 1
+}
+
+# Find available ports
+DEV_PORT=$(find_available_port 3000)
+DEV_WS_PORT=$(find_available_port 3001)
+HTTP_PORT=$(find_available_port 8000)
+
+echo "Available ports found:"
+echo "DEV_PORT=$DEV_PORT"
+echo "DEV_WS_PORT=$DEV_WS_PORT" 
+echo "HTTP_PORT=$HTTP_PORT"
+
+# Auto-update .env file
+cat > .env << EOF
+# Auto-generated port configuration
+DEV_PORT=$DEV_PORT
+DEV_WS_PORT=$DEV_WS_PORT
+HTTP_PORT=$HTTP_PORT
+HTTPS_PORT=443
+PROD_PORT=3000
+EOF
+
+echo "✅ .env file updated with available ports"
+```
+
+### 2. Smart Container Startup
+```bash
+# scripts/start-dev.sh
+#!/bin/bash
+echo "🚀 Starting Jadwal Sholat Development Environment..."
+
+# Check if ports are available
+./scripts/check-ports.sh
+
+# If default ports are taken, find alternatives
+if netstat -tlnp 2>/dev/null | grep -q ":3000 "; then
+    echo "🔄 Port 3000 is busy, finding alternative..."
+    ./scripts/find-available-port.sh
+fi
+
+# Load environment variables
+set -a
+source .env 2>/dev/null || echo "No .env file found, using defaults"
+set +a
+
+echo "📡 Starting containers with ports:"
+echo "   App: ${DEV_PORT:-3000}"
+echo "   WebSocket: ${DEV_WS_PORT:-3001}"
+
+# Start development environment
+docker-compose -f docker-compose.dev.yml up --build
+
+echo "🎉 Development server started!"
+echo "📱 Access app at: http://localhost:${DEV_PORT:-3000}"
+```
+
+```bash
+# scripts/start-prod.sh  
+#!/bin/bash
+echo "🏭 Starting Jadwal Sholat Production Environment..."
+
+# Check critical ports
+if netstat -tlnp 2>/dev/null | grep -q ":80 "; then
+    echo "⚠️  Port 80 is busy, using alternative port 8080"
+    export HTTP_PORT=8080
+fi
+
+# Load environment variables
+set -a
+source .env 2>/dev/null || echo "No .env file found, using defaults"
+set +a
+
+echo "🌐 Starting production with ports:"
+echo "   HTTP: ${HTTP_PORT:-80}"
+echo "   HTTPS: ${HTTPS_PORT:-443}"
+
+# Start production environment
+docker-compose -f docker-compose.yml up -d --build
+
+echo "✅ Production server started!"
+echo "🌍 Access app at: http://localhost:${HTTP_PORT:-80}"
+```
+
+### Container Environment
+- **Node.js 18 Alpine** sebagai base image
+- **Multi-stage build** untuk optimasi production
+- **Hot reload** dengan volume binding untuk development
+- **Nginx** untuk serving static files di production
+- **Docker Compose** untuk orchestration semua services
+- **Dynamic port allocation** dengan environment variables
+- **Automatic port conflict detection** dan resolution
+
+### Volume Management
+```bash
+# Persistent volumes yang harus dibuat
+./volumes/node_modules/     # NPM dependencies
+./volumes/build/            # Build output
+./volumes/cache/            # Build dan npm cache
+./volumes/ssl/              # SSL certificates (jika ada)
+
+# Bind mounts untuk development
+./src -> /app/src                    # Source code
+./public -> /app/public              # Static assets
+./package.json -> /app/package.json  # Dependencies
+```
+
+### Panduan Integrasi API
+```javascript
+// Integrasi API yang diperlukan:
+// 1. Geolocation (Browser native + IP fallback)
+// 2. Jadwal sholat (berbasis koordinat)
+// 3. Konversi tanggal Hijriah
+// 4. Opsional: Reverse geocoding untuk nama lokasi
+
+// shadcn/ui components yang tersedia:
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+// Dan komponen shadcn/ui lainnya sesuai kebutuhan
+```
+
+### Error Handling & Fallbacks
+- **Degradasi yang mulus** di setiap lapisan API
+- **Pesan error yang user-friendly** dalam Bahasa Indonesia
+- **Loading states** dengan indikator progress
+- **Mekanisme retry** untuk API calls yang gagal
+- **Pengalaman seperti offline** dengan data fallback yang di-cache
+
+### Prinsip Desain UI/UX
+- **Desain clean dan minimalis** terinspirasi time.is
+- **shadcn/ui components** untuk konsistensi dan accessibility
+- **Dark mode & Light mode** dengan toggle yang mudah diakses
+- **Mobile-first responsive** dengan breakpoints yang optimal
+- **Tampilan waktu yang besar dan mudah dibaca** sebagai fokus utama
+- **Estetika Islami** dengan warna yang sesuai (teal, hijau) dan adaptasi untuk kedua theme
+- **Accessibility first** dengan kontras yang tepat, semantic HTML, dan ARIA labels
+- **Touch-friendly interfaces** untuk penggunaan mobile yang optimal
+
+## Panduan Implementasi Spesifik
+
+### Alur Deteksi Lokasi
+```javascript
+1. Minta izin HTML5 Geolocation
+2. Jika diizinkan → Gunakan koordinat GPS
+3. Jika ditolak → Fallback ke IP geolocation
+4. Jika IP gagal → Gunakan input manual atau region default
+5. Selalu tampilkan sumber lokasi dan koordinat
+```
+
+### Perhitungan Waktu Sholat
+- Gunakan metode perhitungan yang akurat (standar Kemenag/Indonesia)
+- Perhitungkan timezone pengguna secara otomatis
+- Hitung countdown sholat berikutnya secara real-time
+- Highlight sholat yang akan datang secara visual
+
+### Penanganan Tanggal
+- **Masehi**: Gunakan JavaScript Date dengan timezone yang tepat
+- **Hijriah**: Konversi berbasis API (AlAdhan, Islamic Network)
+- **Format**: Preferensi locale Indonesia
+- **Update real-time** setiap detik untuk jam
+
+### Pertimbangan Performa
+- **API calls yang efisien** dengan caching yang tepat
+- **Location updates yang di-debounce** untuk menghindari spam
+- **Memory management** untuk timer real-time
+- **Load awal yang cepat** dengan skeleton states
+
+## Gaya & Struktur Kode
+
+### Struktur Komponen React
+```javascript
+const AplikasiJadwalSholat = () => {
+  // State management
+  const [waktuSekarang, setWaktuSekarang] = useState(new Date());
+  const [lokasi, setLokasi] = useState(null);
+  const [jadwalSholat, setJadwalSholat] = useState({});
+  const [tanggalHijriah, setTanggalHijriah] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Deteksi mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  // Dark mode persistence
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    } else {
+      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+  }, []);
+  
+  // Fungsi inti
+  const dapatkanLokasi = async () => { /* GPS + IP fallback */ };
+  const ambilJadwalSholat = async (koordinat) => { /* Integrasi API */ };
+  const hitungSholatBerikutnya = () => { /* Countdown real-time */ };
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('theme', newMode ? 'dark' : 'light');
+  };
+  
+  return (
+    <div className={`min-h-screen transition-colors ${darkMode ? 'dark' : ''}`}>
+      <div className="bg-background text-foreground">
+        {/* UI responsif dengan shadcn/ui components */}
+        <Card className="w-full max-w-4xl mx-auto">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Jadwal Sholat</CardTitle>
+            <Switch 
+              checked={darkMode} 
+              onCheckedChange={toggleDarkMode}
+              aria-label="Toggle dark mode"
+            />
+          </CardHeader>
+          <CardContent>
+            {/* Konten aplikasi */}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+```
+
+### Pola Integrasi API
+```javascript
+// Selalu sertakan error handling dan fallbacks
+const fetchDenganFallback = async (apiUtama, apiFallback, errorHandler) => {
+  try {
+    return await fetch(apiUtama);
+  } catch (error) {
+    console.warn('API utama gagal, mencoba fallback');
+    try {
+      return await fetch(apiFallback);
+    } catch (fallbackError) {
+      return errorHandler(fallbackError);
+    }
+  }
+};
+```
+
+## API yang Direkomendasikan
+
+### API Jadwal Sholat
+- **AlAdhan API**: `https://api.aladhan.com/v1/timings/{tanggal}?latitude={lat}&longitude={lng}&method=20`
+- **MyQuran API**: `https://api.myquran.com/v2/sholat/jadwal/{id_kota}/{tahun}/{bulan}/{tanggal}`
+
+### API Geolocation
+- **IP-API**: `http://ip-api.com/json/` (tier gratis)
+- **IPInfo**: `https://ipinfo.io/json` (backup)
+
+### API Kalender Hijriah
+- **AlAdhan**: `https://api.aladhan.com/v1/gToH/{tanggal}`
+- **Islamic Network**: Berbagai endpoint untuk konversi kalender
+
+## Persyaratan Lokalisasi
+- **Bahasa Utama**: Bahasa Indonesia
+- **Nama Sholat**: Gunakan istilah Indonesia (Subuh, Dzuhur, Ashar, Magrib, Isya)
+- **Format Tanggal**: Locale Indonesia
+- **Pesan Error**: Teks Indonesia yang user-friendly
+- **Istilah Islam**: Transliterasi Arab yang tepat dengan pengucapan Indonesia
+
+## Testing & Quality Assurance
+
+### Checklist Testing Manual
+- [ ] Test dalam development container (docker-compose.dev.yml)
+- [ ] Test dalam production container (docker-compose.yml)
+- [ ] Test dengan izin GPS diberikan
+- [ ] Test dengan izin GPS ditolak
+- [ ] Test dengan koneksi jaringan terputus
+- [ ] Test di berbagai timezone
+- [ ] Test transisi waktu sholat
+- [ ] Test desain responsif di mobile (320px - 768px)
+- [ ] Test desain responsif di tablet (768px - 1024px)
+- [ ] Test desain responsif di desktop (1024px+)
+- [ ] Test dark mode dan light mode
+- [ ] Test toggle theme functionality
+- [ ] Test persistence theme setelah refresh
+- [ ] Test accessibility dengan screen reader
+- [ ] Test touch interactions di mobile
+- [ ] Test skenario fallback API
+- [ ] Test loading states dengan Skeleton components
+- [ ] Test hot reload dalam development container
+- [ ] Test volume persistence setelah container restart
+- [ ] Test build performance dalam container
+- [ ] Test nginx serving di production
+
+### Benchmark Performa
+- Load awal: < 2 detik (dalam container)
+- Build time: < 30 detik (dalam container)
+- Hot reload: < 1 detik (development container)
+- Penanganan response API: < 500ms
+- Update real-time: Tidak ada lag yang terasa
+- Penggunaan memori container: < 512MB untuk development
+- Penggunaan memori container: < 128MB untuk production
+- Container startup time: < 10 detik
+
+## Kesalahan Umum yang Harus Dihindari
+
+1. **Jangan hardcode data lokasi** - Selalu gunakan API
+2. **Jangan asumsikan timezone pengguna** - Hitung dari koordinat
+3. **Jangan abaikan edge cases** - Handle kegagalan API dengan baik
+4. **Jangan skip loading states** - Selalu tunjukkan progress ke pengguna
+5. **Jangan lupakan pengguna mobile** - Test di layar kecil
+6. **Jangan cache jadwal sholat** - Mereka berubah setiap hari
+7. **Jangan abaikan akurasi kalender Islam** - Gunakan API konversi yang tepat
+8. **Jangan install packages di host** - Semua npm install dalam container
+9. **Jangan skip volume binding** - Pastikan persistence data
+10. **Jangan hardcode container ports** - Gunakan environment variables
+11. **Jangan ignore .dockerignore** - Exclude file yang tidak perlu
+12. **Jangan forget container health checks** - Monitor container health
+13. **Jangan asumsikan port tersedia** - Selalu check port availability
+14. **Jangan ignore port conflicts** - Implement automatic port detection
+
+### Docker-Specific Pitfalls
+```bash
+# ❌ JANGAN: Install di host
+npm install @shadcn/ui
+
+# ✅ LAKUKAN: Install dalam container
+docker-compose -f docker-compose.dev.yml exec jadwal-sholat-dev npm install @shadcn/ui
+
+# ❌ JANGAN: Hardcode ports
+ports:
+  - "3000:3000"
+
+# ✅ LAKUKAN: Dynamic ports dengan environment variables
+ports:
+  - "${DEV_PORT:-3000}:3000"
+
+# ❌ JANGAN: Start tanpa checking ports
+docker-compose up
+
+# ✅ LAKUKAN: Check ports dulu
+./scripts/check-ports.sh
+./scripts/start-dev.sh
+
+# ❌ JANGAN: Volume tanpa binding
+volumes:
+  - node_modules:/app/node_modules
+
+# ✅ LAKUKAN: Bind volume untuk persistence
+volumes:
+  - ./volumes/node_modules:/app/node_modules:rw
+
+# ❌ JANGAN: Ignore port conflict errors
+ERROR: for app Cannot start service app: driver failed programming external connectivity
+
+# ✅ LAKUKAN: Use port detection and fallback
+if netstat -tlnp | grep -q ":3000 "; then
+    export DEV_PORT=4000
+fi
+```
+
+### Port Management Best Practices
+```bash
+# ✅ Selalu check port availability
+./scripts/check-ports.sh
+
+# ✅ Use environment variables untuk ports
+export DEV_PORT=4000
+export HTTP_PORT=8080
+
+# ✅ Provide fallback ports
+ports:
+  - "${DEV_PORT:-3000}:3000"
+
+# ✅ Log which ports are being used
+echo "🚀 App running on http://localhost:${DEV_PORT}"
+
+# ✅ Handle port conflicts gracefully
+if [ $? -ne 0 ]; then
+    echo "Port conflict detected, trying alternative..."
+    DEV_PORT=4000 docker-compose up
+fi
+```
+
+## Kriteria Sukses
+
+Aplikasi berhasil ketika:
+- ✅ Bekerja akurat di mana saja di dunia
+- ✅ Menyediakan waktu sholat yang presisi untuk lokasi pengguna yang tepat
+- ✅ Menampilkan tanggal Islam dan Masehi yang benar
+- ✅ Menangani semua skenario error dengan baik
+- ✅ Load cepat dan performa yang mulus
+- ✅ Accessible dan mudah digunakan untuk semua pengguna
+- ✅ Tidak ada nilai hardcode di mana pun dalam codebase
+- ✅ **Berjalan sepenuhnya dalam Docker containers**
+- ✅ **Volume persistence berfungsi dengan baik**
+- ✅ **Hot reload bekerja dalam development container**
+- ✅ **Build process berjalan dalam container**
+- ✅ **Deployment production menggunakan docker-compose**
+
+### Container Success Criteria
+```bash
+# Development berhasil jika:
+./scripts/check-ports.sh                        # ✅ Port availability checked
+./scripts/start-dev.sh                          # ✅ Starts without port conflicts
+curl http://localhost:${DEV_PORT:-3000}         # ✅ App accessible on dynamic port
+# Edit src/App.jsx                              # ✅ Hot reload works
+docker-compose -f docker-compose.dev.yml exec jadwal-sholat-dev npm test  # ✅ Tests pass
+
+# Production berhasil jika:
+./scripts/start-prod.sh                         # ✅ Starts with available ports
+curl http://localhost:${HTTP_PORT:-80}          # ✅ Nginx serves app on correct port
+docker-compose -f docker-compose.yml logs      # ✅ No port conflict errors
+curl -f http://localhost:${HTTP_PORT:-80}/health # ✅ Health check passes
+
+# Port management berhasil jika:
+./scripts/find-available-port.sh               # ✅ Finds alternative ports
+cat .env | grep "DEV_PORT="                    # ✅ Environment variables set
+docker-compose -f docker-compose.dev.yml ps   # ✅ Containers running on correct ports
+netstat -tlnp | grep ${DEV_PORT:-3000}        # ✅ Port actually in use
+
+# Volume persistence berhasil jika:
+docker-compose -f docker-compose.dev.yml down  # Stop containers
+ls -la volumes/node_modules                     # ✅ Dependencies persist
+ls -la volumes/build                            # ✅ Build output persist
+docker-compose -f docker-compose.dev.yml up    # ✅ Fast startup (cached)
+
+# Troubleshooting port issues:
+# Jika container gagal start dengan port error:
+ERROR: Cannot start service: port is already allocated
+# Jalankan:
+./scripts/find-available-port.sh
+docker-compose -f docker-compose.dev.yml down
+docker-compose -f docker-compose.dev.yml up
+```
+
+## Workflow Development
+
+1. **Mulai dengan deteksi lokasi** - Bangun sistem geolocation yang robust
+2. **Integrasikan API jadwal sholat** - Test dengan berbagai set koordinat
+3. **Tambahkan penanganan tanggal/waktu** - Implementasikan update real-time
+4. **Desain UI responsif** - Pendekatan mobile-first
+5. **Implementasikan error handling** - Test skenario kegagalan
+6. **Optimasi performa** - Minimalisir API calls dan renders
+7. **User testing** - Validasi dengan berbagai lokasi dan perangkat
+
+## Panduan Khusus Desain & UI
+
+### Sistem Design shadcn/ui
+- **Theme System**: Gunakan CSS variables untuk dark/light mode
+- **Color Palette**: Sesuaikan dengan estetika Islami
+  ```css
+  :root {
+    --primary: 158 64% 52%; /* Teal untuk aksen Islamic */
+    --secondary: 142 76% 36%; /* Green untuk elemen pendukung */
+    --muted: 210 40% 98%; /* Background subtle */
+  }
+  
+  .dark {
+    --primary: 158 64% 52%;
+    --secondary: 142 76% 36%;
+    --muted: 217.2 32.6% 17.5%;
+  }
+  ```
+
+### Responsive Breakpoints
+```javascript
+const breakpoints = {
+  mobile: '320px - 767px',    // Single column, large touch targets
+  tablet: '768px - 1023px',   // Two column layout
+  desktop: '1024px+',         // Multi-column, sidebar navigation
+};
+
+// Mobile-first CSS approach
+.prayer-card {
+  @apply w-full p-4;           /* Mobile default */
+  @apply md:w-1/2 md:p-6;      /* Tablet */
+  @apply lg:w-1/3 lg:p-8;      /* Desktop */
+}
+```
+
+### Dark Mode Implementation
+```javascript
+// Gunakan system preference sebagai default
+const useTheme = () => {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    return 'light';
+  });
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  return { theme, toggleTheme };
+};
+```
+
+### Mobile-Specific Optimizations
+- **Touch Targets**: Minimum 44px untuk semua interactive elements
+- **Swipe Gestures**: Implement swipe untuk navigasi antar hari/bulan
+- **Pull-to-Refresh**: Gesture untuk refresh data
+- **Bottom Sheet**: Modal yang mobile-friendly
+- **Safe Area**: Respect untuk iPhone notch dan Android navigation
+
+### Component Usage Guidelines
+```javascript
+// Loading States
+<Skeleton className="h-8 w-48 mb-4" />  // Untuk waktu
+<Skeleton className="h-12 w-full" />     // Untuk prayer cards
+
+// Alerts untuk feedback
+<Alert variant="destructive">
+  <AlertCircle className="h-4 w-4" />
+  <AlertTitle>Error</AlertTitle>
+  <AlertDescription>Gagal mengambil lokasi</AlertDescription>
+</Alert>
+
+// Cards untuk grouping content
+<Card className="hover:shadow-lg transition-shadow">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <MapPin className="h-5 w-5" />
+      Lokasi Anda
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    {/* Content */}
+  </CardContent>
+</Card>
+
+// Buttons dengan variants yang sesuai
+<Button variant="default" size="lg">Refresh Lokasi</Button>
+<Button variant="outline" size="sm">Pengaturan</Button>
+<Button variant="ghost" size="icon">
+  <Settings className="h-4 w-4" />
+</Button>
+```
+
+## Panduan Khusus Indonesia
+
+### Metode Perhitungan Sholat
+- Gunakan metode Kemenag RI (method=20 di AlAdhan)
+- Subuh: 20.0 derajat
+- Isya: 18.0 derajat
+- Madhab: Hanafi, Maliki, Shafi
+
+### Format Tampilan
+- Waktu: Format 24 jam (HH:MM)
+- Tanggal Masehi: "Senin, 26 Mei 2025"
+- Tanggal Hijriah: "28 Dzulqadah, 1446 H"
+- Timezone: WIB (UTC+7)
+
+### Terminologi Sholat
+```javascript
+const namaSholat = {
+  fajr: 'Subuh',
+  dhuhr: 'Dzuhur', 
+  asr: 'Ashar',
+  maghrib: 'Magrib',
+  isha: 'Isya',
+  sunrise: 'Matahari Terbit'
+};
+```
+
+### Mobile Layout Indonesia
+```javascript
+// Layout khusus untuk pengguna Indonesia
+const MobileLayoutIndonesia = () => (
+  <div className="space-y-4 p-4">
+    {/* Header dengan lokasi Indonesia */}
+    <Card>
+      <CardContent className="pt-6">
+        <div className="text-center space-y-2">
+          <Badge variant="secondary">🇮🇩 Indonesia</Badge>
+          <h1 className="text-2xl font-bold">Jadwal Sholat</h1>
+          <p className="text-muted-foreground">{namaKota}, {namaProvinsi}</p>
+        </div>
+      </CardContent>
+    </Card>
+    
+    {/* Waktu besar dengan timezone Indonesia */}
+    <Card>
+      <CardContent className="pt-6">
+        <div className="text-center">
+          <div className="text-6xl font-mono font-light mb-2">
+            {waktuSekarang}
+          </div>
+          <Badge variant="outline">WIB • {tanggalHijriah}</Badge>
+        </div>
+      </CardContent>
+    </Card>
+    
+    {/* Grid sholat untuk mobile */}
+    <div className="grid grid-cols-2 gap-3">
+      {Object.entries(jadwalSholat).map(([nama, waktu]) => (
+        <Card key={nama} className={sholatBerikutnya === nama ? 'ring-2 ring-primary' : ''}>
+          <CardContent className="p-4 text-center">
+            <div className="font-semibold text-sm mb-1">{nama}</div>
+            <div className="text-xl font-mono">{waktu}</div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  </div>
+);
+```
+
+## Fitur Tambahan yang Direkomendasikan
+
+### Notifikasi & Reminder
+- Push notification untuk waktu sholat (jika didukung browser)
+- Audio adzan atau reminder (opsional)
+- Countdown visual ke sholat berikutnya
+
+### Penyesuaian Lokal
+- Deteksi kota/kabupaten di Indonesia
+- Penyesuaian otomatis untuk wilayah tertentu
+- Support untuk berbagai daerah waktu Indonesia (WIB, WITA, WIT)
+
+### Data Tambahan
+- Arah kiblat berdasarkan koordinat
+- Info cuaca lokal (jika memungkinkan)
+- Kalender Islam dengan hari-hari penting
+
+Aplikasi ini harus berfungsi sebagai alat yang dapat diandalkan, akurat, dan user-friendly bagi umat Muslim di seluruh dunia untuk melacak waktu sholat mereka berdasarkan lokasi nyata mereka.

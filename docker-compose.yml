@@ -1,0 +1,41 @@
+# docker-compose.yml (Production)
+version: '3.8'
+services:
+  jadwal-sholat-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "${PROD_PORT:-3000}:3000"
+    volumes:
+      - ./volumes/build:/app/build:rw
+      - ./volumes/cache:/app/.cache:rw
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Jakarta
+    restart: unless-stopped
+    networks:
+      - jadwal-sholat-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./volumes/build:/usr/share/nginx/html:ro
+      - ./volumes/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - jadwal-sholat-app
+    restart: unless-stopped
+    networks:
+      - jadwal-sholat-network
+
+networks:
+  jadwal-sholat-network:
+    driver: bridge
+
+volumes:
+  node_modules:
+  build_cache:

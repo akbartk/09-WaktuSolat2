@@ -1,0 +1,25 @@
+# Dockerfile.dev
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies termasuk shadcn/ui dan tools
+RUN apk add --no-cache git curl
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies ke volume
+RUN npm install --cache /app/.cache
+
+# Instal Vite secara global
+RUN npm install -g vite
+
+# Copy source code
+COPY . .
+
+# Expose ports
+EXPOSE 3000 3001
+
+# Development command
+CMD ["npm", "run", "dev"]
