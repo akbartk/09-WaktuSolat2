@@ -1,6 +1,14 @@
-# Waktu Solat - Aplikasi Jadwal Sholat
+# Waktu Solat AkbarTK - Aplikasi Jadwal Sholat
 
 Aplikasi jadwal sholat yang menyediakan waktu sholat Islam yang akurat berdasarkan lokasi real-time pengguna. Aplikasi ini dirancang untuk 100% dinamis tanpa nilai hardcode untuk fleksibilitas dan akurasi maksimal.
+
+## Akses Aplikasi Online
+
+Aplikasi ini dapat diakses secara online melalui:
+
+**🌐 [https://akbartk.info](https://akbartk.info)**
+
+Aplikasi ini mendukung akses melalui HTTPS (port 443) dan HTTP (port 80, akan diarahkan ke HTTPS).
 
 ## Fitur Utama
 
@@ -53,6 +61,30 @@ npm install
 ```bash
 npm run dev
 ```
+
+## Cara Deploy ke GitHub Pages
+
+1. Fork repositori ini ke akun GitHub Anda
+2. Clone repositori yang sudah di-fork:
+
+```bash
+git clone https://github.com/username/09-WaktuSolat2.git
+cd 09-WaktuSolat2
+```
+
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Deploy ke GitHub Pages:
+
+```bash
+npm run deploy
+```
+
+Atau, Anda bisa menggunakan GitHub Actions yang sudah dikonfigurasi. Setiap kali Anda melakukan push ke branch `main`, aplikasi akan otomatis di-deploy ke GitHub Pages.
 
 5. Atau build untuk production:
 
