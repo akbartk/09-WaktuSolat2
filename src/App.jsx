@@ -43,11 +43,6 @@ function App() {
     }, 500);
   }, [])
 
-  // Efek untuk mendapatkan lokasi saat komponen dimuat
-  useEffect(() => {
-    dapatkanLokasi()
-  }, [])
-
   // Efek untuk mendapatkan jadwal sholat saat lokasi berubah
   useEffect(() => {
     if (lokasi) {
@@ -55,9 +50,19 @@ function App() {
       ambilTanggalHijriah()
     }
   }, [lokasi])
+  
+  // Efek untuk mendapatkan lokasi saat komponen dimuat (hanya sekali)
+  useEffect(() => {
+    // Gunakan flag untuk menghindari notifikasi berulang
+    const showToast = sessionStorage.getItem('locationToastShown') !== 'true';
+    dapatkanLokasi(showToast);
+    if (showToast) {
+      sessionStorage.setItem('locationToastShown', 'true');
+    }
+  }, [])
 
   // Fungsi untuk mendapatkan lokasi pengguna
-  const dapatkanLokasi = async () => {
+  const dapatkanLokasi = async (showToast = true) => {
     setLoading(true)
     setSumberLokasi('loading')
     
@@ -69,27 +74,34 @@ function App() {
             const { latitude, longitude } = position.coords
             setLokasi({ latitude, longitude })
             setSumberLokasi('gps')
-            toast({
-              title: "Lokasi ditemukan",
-              description: "Menggunakan GPS perangkat Anda",
-            })
+            if (showToast) {
+              toast({
+                title: "Lokasi ditemukan",
+                description: "Menggunakan GPS perangkat Anda",
+              })
+            }
           },
           async (error) => {
             console.warn("Geolocation error:", error)
-            // Fallback ke IP geolocation
+            // Fallback ke IP geolocation tanpa token (free tier)
             try {
-              const response = await fetch('https://ipinfo.io/json?token=YOUR_TOKEN')
+              const response = await fetch('https://ipapi.co/json/')
               const data = await response.json()
-              const [lat, lon] = data.loc.split(',')
-              setLokasi({ 
-                latitude: parseFloat(lat), 
-                longitude: parseFloat(lon) 
-              })
-              setSumberLokasi('ip')
-              toast({
-                title: "Menggunakan lokasi berdasarkan IP",
-                description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
-              })
+              if (data && data.latitude && data.longitude) {
+                setLokasi({ 
+                  latitude: parseFloat(data.latitude), 
+                  longitude: parseFloat(data.longitude) 
+                })
+                setSumberLokasi('ip')
+                if (showToast) {
+                  toast({
+                    title: "Menggunakan lokasi berdasarkan IP",
+                    description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
+                  })
+                }
+              } else {
+                throw new Error('Tidak dapat mendapatkan lokasi dari IP')
+              }
             } catch (ipError) {
               console.error("IP Geolocation error:", ipError)
               // Fallback ke lokasi default (Jakarta)
@@ -98,11 +110,13 @@ function App() {
                 longitude: 106.8456 
               })
               setSumberLokasi('default')
-              toast({
-                title: "Menggunakan lokasi default",
-                description: "Lokasi diatur ke Jakarta",
-                variant: "destructive"
-              })
+              if (showToast) {
+                toast({
+                  title: "Menggunakan lokasi default",
+                  description: "Lokasi diatur ke Jakarta",
+                  variant: "destructive"
+                })
+              }
             }
           },
           { timeout: 5000 }
@@ -122,11 +136,13 @@ function App() {
         longitude: 106.8456 
       })
       setSumberLokasi('default')
-      toast({
-        title: "Geolocation tidak didukung",
-        description: "Browser Anda tidak mendukung geolocation",
-        variant: "destructive"
-      })
+      if (showToast) {
+        toast({
+          title: "Geolocation tidak didukung",
+          description: "Browser Anda tidak mendukung geolocation",
+          variant: "destructive"
+        })
+      }
     }
   }
 
@@ -334,8 +350,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center">
-      <div className="w-full max-w-md">
-        <Card className="w-full">
+      <div className="w-full max-w-md animate-fadeIn">
+        <Card className="w-full shadow-lg border border-primary/20 animate-glow overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Jadwal Sholat</CardTitle>
             <div className="flex items-center space-x-2">
@@ -356,28 +372,28 @@ function App() {
           </CardHeader>
           <CardContent>
             {/* Waktu dan Tanggal */}
-            <div className="mb-6 text-center">
-              <h2 className="text-3xl font-bold mb-1">
+            <div className="mb-6 text-center animate-slideUp">
+              <h2 className="text-3xl font-bold mb-1 tracking-tight">
                 {formatWaktu(waktuSekarang)}
               </h2>
               <p className="text-muted-foreground">
                 {formatTanggal(waktuSekarang)}
               </p>
               {tanggalHijriah && (
-                <p className="text-sm text-muted-foreground">{tanggalHijriah}</p>
+                <p className="text-sm text-muted-foreground italic">{tanggalHijriah}</p>
               )}
             </div>
 
             {/* Lokasi */}
-            <div className="flex items-center justify-center mb-6 text-sm">
-              <MapPin className="h-4 w-4 mr-1" />
+            <div className="flex items-center justify-center mb-6 text-sm animate-slideUp" style={{animationDelay: '150ms'}}>
+              <MapPin className="h-4 w-4 mr-1 text-primary" />
               {sumberLokasi === 'loading' ? (
                 <Skeleton className="h-4 w-40" />
               ) : (
                 <span>
                   {lokasi ? `${lokasi.latitude.toFixed(4)}, ${lokasi.longitude.toFixed(4)}` : 'Lokasi tidak tersedia'} 
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : 'Default'})
+                  <span className="text-xs text-muted-foreground ml-1 bg-secondary/50 px-1.5 py-0.5 rounded-full">
+                    {sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : 'Default'}
                   </span>
                 </span>
               )}
@@ -390,18 +406,18 @@ function App() {
                 <Skeleton className="h-12 w-32 mx-auto" />
               </div>
             ) : sholatBerikutnya && (
-              <div className="mb-6 text-center">
+              <div className="mb-6 text-center animate-slideUp" style={{animationDelay: '300ms'}}>
                 <h3 className="text-lg font-medium mb-1">
                   {sholatBerikutnya.charAt(0).toUpperCase() + sholatBerikutnya.slice(1)} dalam
                 </h3>
-                <div className="text-4xl font-bold text-primary">
+                <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary via-green-400 to-primary bg-[length:200%_auto] animate-gradient animate-pulse">
                   {countdown}
                 </div>
               </div>
             )}
 
             {/* Jadwal Sholat */}
-            <div className="space-y-3">
+            <div className="space-y-3 animate-slideUp" style={{animationDelay: '450ms'}}>
               {loading ? (
                 <>
                   <Skeleton className="h-12 w-full" />
@@ -412,35 +428,46 @@ function App() {
                 </>
               ) : jadwalSholat ? (
                 <>
-                  {Object.entries(jadwalSholat).map(([key, time]) => (
+                  {Object.entries(jadwalSholat).map(([key, time], index) => (
                     <div 
                       key={key}
-                      className={`flex justify-between items-center p-3 rounded-md ${
+                      className={`flex justify-between items-center p-3 rounded-md shadow-sm hover:translate-x-1 transition-all duration-200 ${
                         sholatBerikutnya === key 
-                          ? 'bg-primary/10 border border-primary' 
-                          : 'bg-card'
+                          ? 'bg-primary/10 border border-primary hover:-translate-y-1 hover:shadow-md' 
+                          : 'bg-card hover:bg-secondary/50'
                       }`}
+                      style={{animationDelay: `${450 + (index * 100)}ms`}}
                     >
-                      <span className="font-medium capitalize">
+                      <span className="font-medium capitalize flex items-center">
+                        {key === 'subuh' && <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
+                        {key === 'dzuhur' && <svg className="w-4 h-4 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
+                        {key === 'ashar' && <svg className="w-4 h-4 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
+                        {key === 'maghrib' && <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
+                        {key === 'isya' && <svg className="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
                         {key}
                       </span>
-                      <span className={`${sholatBerikutnya === key ? 'font-bold' : ''}`}>
+                      <span className={`${sholatBerikutnya === key ? 'font-bold text-primary' : ''} bg-background/80 px-2 py-0.5 rounded`}>
                         {time}
                       </span>
                     </div>
                   ))}
                 </>
               ) : (
-                <div className="text-center text-muted-foreground">
+                <div className="text-center text-muted-foreground p-4 border border-dashed rounded-md">
                   Tidak dapat memuat jadwal sholat
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="mt-6 text-center text-xs text-muted-foreground">
-              <p>Waktu Solat &copy; {new Date().getFullYear()}</p>
-              <p className="mt-1">Menggunakan metode perhitungan Kementerian Agama RI</p>
+            <div className="mt-6 text-center text-xs text-muted-foreground animate-slideUp" style={{animationDelay: '950ms'}}>
+              <div className="flex items-center justify-center mb-1">
+                <svg className="w-4 h-4 mr-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <span>Waktu Solat AkbarTK © 2025</span>
+              </div>
+              <div className="text-primary/70 font-medium">
+                Menggunakan metode perhitungan Kementerian Agama RI
+              </div>
             </div>
           </CardContent>
         </Card>

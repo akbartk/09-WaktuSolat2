@@ -9,11 +9,13 @@ RUN apk add --no-cache git curl
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies ke volume
+# Install dependencies ke volume dengan Vite
 RUN npm install --cache /app/.cache
-
-# Instal Vite secara global
+RUN npm install vite --save-dev --cache /app/.cache
 RUN npm install -g vite
+
+# Verifikasi instalasi Vite
+RUN vite --version
 
 # Copy source code
 COPY . .
