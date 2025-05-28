@@ -14,9 +14,9 @@ Aplikasi jadwal sholat yang menyediakan waktu sholat Islam yang akurat berdasark
 
 Aplikasi ini dapat diakses secara online melalui:
 
-**🌐 [http://akbartk.info:3030](http://akbartk.info:3030)**
+**🌐 [http://localhost:3030](http://localhost:3030)**
 
-API server berjalan di: **[http://akbartk.info:3005](http://akbartk.info:3005)**
+API server berjalan di: **[http://localhost:3005](http://localhost:3005)**
 
 ## Tampilan Aplikasi
 
@@ -25,10 +25,18 @@ API server berjalan di: **[http://akbartk.info:3005](http://akbartk.info:3005)**
 Aplikasi menggunakan tema gelap sebagai default untuk kenyamanan pengguna, terutama saat digunakan di malam hari. Tampilan aplikasi mencakup:
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/akbartk/09-WaktuSolat2/main/public/screenshots/dark-mode.png" alt="Aplikasi Jadwal Sholat - Mode Gelap" width="400">
+  <img src="./screenshots/dark-mode.png" alt="Aplikasi Jadwal Sholat - Mode Gelap" width="400">
 </div>
 
-Fitur-fitur yang terlihat pada tampilan:
+### Mode Terang
+
+Aplikasi juga mendukung mode terang yang dapat diaktifkan dengan mengklik tombol tema di sudut kanan atas:
+
+<div align="center">
+  <img src="./screenshots/light-mode.png" alt="Aplikasi Jadwal Sholat - Mode Terang" width="400">
+</div>
+
+### Fitur-fitur yang Terlihat pada Tampilan:
 
 - Jam digital real-time
 - Tanggal Masehi dan Hijriah
