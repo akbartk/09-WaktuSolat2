@@ -2,13 +2,41 @@
 
 Aplikasi jadwal sholat yang menyediakan waktu sholat Islam yang akurat berdasarkan lokasi real-time pengguna. Aplikasi ini dirancang untuk 100% dinamis tanpa nilai hardcode untuk fleksibilitas dan akurasi maksimal.
 
+## Pembaruan Terbaru (27 Mei 2025)
+
+- Konfigurasi port diubah untuk menghindari konflik dengan layanan lain
+- Aplikasi sekarang berjalan di port 3030 untuk akses web
+- API server berjalan di port 3005
+- Perbaikan proses deployment untuk memastikan file build disalin ke direktori yang benar
+- Peningkatan keamanan dengan penambahan header security di konfigurasi nginx
+
 ## Akses Aplikasi Online
 
 Aplikasi ini dapat diakses secara online melalui:
 
-**🌐 [https://akbartk.info](https://akbartk.info)**
+**🌐 [http://akbartk.info:3030](http://akbartk.info:3030)**
 
-Aplikasi ini mendukung akses melalui HTTPS (port 443) dan HTTP (port 80, akan diarahkan ke HTTPS).
+API server berjalan di: **[http://akbartk.info:3005](http://akbartk.info:3005)**
+
+## Tampilan Aplikasi
+
+### Mode Gelap (Default)
+
+Aplikasi menggunakan tema gelap sebagai default untuk kenyamanan pengguna, terutama saat digunakan di malam hari. Tampilan aplikasi mencakup:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/akbartk/09-WaktuSolat2/main/public/screenshots/dark-mode.png" alt="Aplikasi Jadwal Sholat - Mode Gelap" width="400">
+</div>
+
+Fitur-fitur yang terlihat pada tampilan:
+
+- Jam digital real-time
+- Tanggal Masehi dan Hijriah
+- Koordinat lokasi (dari IP atau GPS)
+- Countdown ke waktu sholat berikutnya
+- Jadwal 5 waktu sholat hari ini
+- Tombol refresh untuk memperbarui data
+- Toggle switch untuk beralih antara mode gelap dan terang
 
 ## Fitur Utama
 
@@ -34,17 +62,42 @@ Aplikasi ini mendukung akses melalui HTTPS (port 443) dan HTTP (port 80, akan di
 
 1. Pastikan Docker dan Docker Compose sudah terinstal di sistem Anda
 2. Clone repositori ini
-3. Jalankan aplikasi dalam mode development:
+3. Salin file `.env.example` menjadi `.env`:
+
+```bash
+cp .env.example .env
+```
+
+4. Jalankan aplikasi dalam mode development:
 
 ```bash
 ./scripts/start-dev.sh
 ```
 
-4. Atau jalankan dalam mode production:
+5. Atau jalankan dalam mode production:
 
 ```bash
-./scripts/start-prod.sh
+./scripts/deploy-production.sh
 ```
+
+### Arsitektur Kontainerisasi
+
+Aplikasi ini menggunakan pendekatan kontainerisasi penuh dengan Docker:
+
+- **Container Aplikasi**: Menjalankan aplikasi React dengan Vite
+- **Container Nginx**: Bertindak sebagai web server dan reverse proxy
+- **Persistent Volumes**: Untuk `node_modules`, `build`, dan `cache`
+
+Konfigurasi kontainerisasi dapat dilihat di file `docker-compose.yml` dan `Dockerfile.prod`.
+
+### Port yang Digunakan
+
+Aplikasi ini menggunakan port berikut:
+
+- **3030**: Port untuk akses web (HTTP)
+- **3005**: Port untuk API server
+
+Port ini dapat dikonfigurasi melalui file `.env` jika diperlukan.
 
 ### Tanpa Docker
 
