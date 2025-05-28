@@ -14,13 +14,29 @@
   animation: spin-slow 3s linear infinite;
 }
 
-/* Preload SVG ikon untuk menghindari flash hitam */
-.icon-preload {
+/* Preload icons styles */
+.svg-preload {
   position: absolute;
   width: 0;
   height: 0;
-  opacity: 0;
+  overflow: hidden;
   z-index: -1;
+  visibility: hidden; /* Memastikan ikon tidak terlihat */
+  display: none; /* Tambahan untuk memastikan tidak terlihat */
+}
+
+/* Memperbaiki tampilan ikon */
+svg {
+  display: inline-block;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
+}
+
+/* Memastikan ikon tidak muncul sebagai kotak hitam */
+svg use {
+  fill: currentColor;
+  stroke: currentColor;
 }
 
 /* Transisi yang lebih mulus untuk elemen UI */
@@ -44,9 +60,99 @@
   animation: smoothFadeIn 0.8s ease-out forwards;
 }
 
-/* Memastikan ikon SVG memiliki transisi yang mulus */
-svg {
-  transition: all 0.3s ease;
+/* Splash screen styles */
+#splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #0f172a;
+  color: white;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+body.loaded #splash-screen {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-icon {
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+  width: 48px; /* Ukuran tetap untuk ikon */
+  height: 48px;
+}
+
+.splash-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.splash-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.splash-subtitle {
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  opacity: 0.8;
+}
+
+.loading-dots {
+  display: flex;
+  justify-content: center;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  margin: 0 5px;
+  border-radius: 50%;
+  background-color: #10b981;
+  animation: dot-pulse 1.5s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+@keyframes dot-pulse {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
 }
 
 /* Preload font untuk menghindari font flickering */
