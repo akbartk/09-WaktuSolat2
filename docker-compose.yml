@@ -17,6 +17,26 @@ services:
     networks:
       - jadwal-sholat-network
 
+  proxy-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    volumes:
+      - ./server.js:/app/server.js
+      - ./volumes/dist:/app/dist
+      - ./volumes/node_modules:/app/node_modules
+      - ./.env:/app/.env
+    command: npm run server
+    environment:
+      - NODE_ENV=development
+      - API_PORT=3005
+      - TZ=Asia/Jakarta
+    restart: unless-stopped
+    networks:
+      - jadwal-sholat-network
+
   nginx:
     image: nginx:alpine
     ports:
@@ -29,6 +49,7 @@ services:
       - ./volumes/ssl:/etc/nginx/ssl:ro
     depends_on:
       - jadwal-sholat-app
+      - proxy-server
     restart: unless-stopped
     networks:
       - jadwal-sholat-network

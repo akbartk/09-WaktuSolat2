@@ -7,7 +7,6 @@ import { useTheme } from './components/theme-provider'
 import { useToast } from './components/ui/use-toast'
 import { Clock, MapPin, Moon, Sun, RefreshCw } from 'lucide-react'
 import { forceStylesheetReload } from './forceRefresh'
-import { corsProxy, fetchWithFallback } from './cors-proxy' // Import fungsi proxy CORS dan fetchWithFallback
 import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
@@ -116,7 +115,8 @@ function App() {
             console.warn("Geolocation error:", error)
             // Fallback ke IP geolocation tanpa token (free tier)
             try {
-              const data = await fetchWithFallback('https://ipapi.co/json/')
+              const response = await fetch('/api/ipapi/json/')
+              const data = await response.json()
               if (data && data.latitude && data.longitude) {
                 setLokasi({ 
                   latitude: parseFloat(data.latitude), 
@@ -186,10 +186,15 @@ function App() {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const yyyy = today.getFullYear()
       
-      // Gunakan fetchWithFallback untuk AlAdhan API
-      const apiUrl = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=20`
+      // Gunakan proxy API lokal untuk AlAdhan API
+      const url = `/api/aladhan/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=20`
       
-      const data = await fetchWithFallback(apiUrl)
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('Gagal mendapatkan jadwal sholat')
+      }
+      
+      const data = await response.json()
       
       // Ekstrak jadwal sholat dari respons
       const timings = data.data.timings
@@ -225,9 +230,10 @@ function App() {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const yyyy = today.getFullYear()
       
-      const apiUrl = `https://api.aladhan.com/v1/gToH/${dd}-${mm}-${yyyy}`
+      const url = `https://api.aladhan.com/v1/gToH/${dd}-${mm}-${yyyy}`
       
-      const data = await fetchWithFallback(apiUrl)
+      const response = await fetch(url)
+      const data = await response.json()
       
       // Pastikan data bulan tersedia dan gunakan nama bulan dalam bahasa Indonesia
       // Jika tidak tersedia, gunakan nomor bulan sebagai fallback
