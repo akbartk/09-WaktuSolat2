@@ -7,13 +7,14 @@ import { useTheme } from './components/theme-provider'
 import { useToast } from './components/ui/use-toast'
 import { Clock, MapPin, Moon, Sun, RefreshCw } from 'lucide-react'
 import { forceStylesheetReload } from './forceRefresh'
-import { corsProxy, fetchWithFallback } from './cors-proxy' // Import fungsi proxy CORS dan fetchWithFallback
+import { corsProxy, fetchWithFallback, getLocationFromIP } from './cors-proxy' // Import fungsi proxy CORS, fetchWithFallback, dan getLocationFromIP
 import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
   // State untuk data aplikasi
   const [waktuSekarang, setWaktuSekarang] = useState(new Date())
   const [lokasi, setLokasi] = useState(null)
+  const [namaLokasi, setNamaLokasi] = useState('') // State untuk menyimpan nama lokasi
   const [jadwalSholat, setJadwalSholat] = useState(null)
   const [tanggalHijriah, setTanggalHijriah] = useState('')
   const [loading, setLoading] = useState(true)
@@ -22,6 +23,7 @@ function App() {
   const [sumberLokasi, setSumberLokasi] = useState('loading')
   const [sholatBerikutnya, setSholatBerikutnya] = useState(null)
   const [countdown, setCountdown] = useState('')
+  const [zonaWaktu, setZonaWaktu] = useState('') // State untuk menyimpan zona waktu
   
   // Hooks untuk tema dan toast
   const { theme, setTheme } = useTheme()
@@ -30,6 +32,7 @@ function App() {
   // Efek untuk update waktu setiap detik
   useEffect(() => {
     const interval = setInterval(() => {
+      // Update waktu dengan mempertimbangkan zona waktu lokasi jika tersedia
       setWaktuSekarang(new Date())
       if (jadwalSholat) {
         hitungSholatBerikutnya()
@@ -105,6 +108,10 @@ function App() {
             const { latitude, longitude } = position.coords
             setLokasi({ latitude, longitude })
             setSumberLokasi('gps')
+            
+            // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat
+            dapatkanNamaLokasi(latitude, longitude)
+            
             if (showToast) {
               toast({
                 title: "Lokasi ditemukan",
@@ -114,38 +121,64 @@ function App() {
           },
           async (error) => {
             console.warn("Geolocation error:", error)
-            // Fallback ke IP geolocation tanpa token (free tier)
+            // Fallback ke IP geolocation dengan mencoba beberapa API
             try {
-              const data = await fetchWithFallback('https://ipapi.co/json/')
-              if (data && data.latitude && data.longitude) {
+              // Gunakan fungsi getLocationFromIP yang lebih handal
+              const ipData = await getLocationFromIP();
+              
+              if (ipData && ipData.latitude && ipData.longitude) {
+                const lat = parseFloat(ipData.latitude);
+                const lng = parseFloat(ipData.longitude);
+                
                 setLokasi({ 
-                  latitude: parseFloat(data.latitude), 
-                  longitude: parseFloat(data.longitude) 
-                })
-                setSumberLokasi('ip')
+                  latitude: lat, 
+                  longitude: lng 
+                });
+                setSumberLokasi('ip');
+                
+                // Jika data memiliki informasi kota dan negara, gunakan itu
+                if (ipData.city && ipData.country) {
+                  setNamaLokasi(`${ipData.city}, ${ipData.country}`);
+                  // Jika sudah mendapatkan nama lokasi, tidak perlu memanggil dapatkanNamaLokasi
+                } else {
+                  // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat jika tidak ada di respons API
+                  dapatkanNamaLokasi(lat, lng);
+                }
+                
+                // Jika data memiliki informasi timezone, gunakan itu
+                if (ipData.timezone) {
+                  setZonaWaktu(ipData.timezone);
+                } else {
+                  // Dapatkan zona waktu berdasarkan koordinat jika tidak ada di respons API
+                  dapatkanZonaWaktu(lat, lng);
+                }
+                
                 if (showToast) {
                   toast({
                     title: "Menggunakan lokasi berdasarkan IP",
                     description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
-                  })
+                  });
                 }
               } else {
-                throw new Error('Tidak dapat mendapatkan lokasi dari IP')
+                throw new Error('Tidak dapat mendapatkan lokasi dari IP');
               }
             } catch (ipError) {
-              console.error("IP Geolocation error:", ipError)
+              console.error("IP Geolocation error:", ipError);
               // Fallback ke lokasi default (Jakarta)
               setLokasi({ 
                 latitude: -6.2088, 
                 longitude: 106.8456 
-              })
-              setSumberLokasi('default')
+              });
+              setSumberLokasi('default');
+              setNamaLokasi('Jakarta, Indonesia');
+              setZonaWaktu('Asia/Jakarta');
+              
               if (showToast) {
                 toast({
                   title: "Menggunakan lokasi default",
                   description: "Lokasi diatur ke Jakarta",
                   variant: "destructive"
-                })
+                });
               }
             }
           },
@@ -158,6 +191,8 @@ function App() {
           longitude: 106.8456 
         })
         setSumberLokasi('default')
+        setNamaLokasi('Jakarta, Indonesia')
+        setZonaWaktu('Asia/Jakarta')
       }
     } else {
       // Browser tidak mendukung Geolocation
@@ -166,6 +201,8 @@ function App() {
         longitude: 106.8456 
       })
       setSumberLokasi('default')
+      setNamaLokasi('Jakarta, Indonesia')
+      setZonaWaktu('Asia/Jakarta')
       if (showToast) {
         toast({
           title: "Geolocation tidak didukung",
@@ -330,7 +367,7 @@ function App() {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     
-    // Memaksa refresh tampilan
+    // Memaksa refresh tampilan tanpa reload halaman
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(newTheme);
     
@@ -343,8 +380,8 @@ function App() {
       description: "Tampilan telah diperbarui",
     });
     
-    // Reload halaman untuk memastikan perubahan diterapkan
-    window.location.reload();
+    // Tidak perlu reload halaman, cukup perbarui state
+    // window.location.reload(); -- Dihapus untuk mencegah auto refresh yang terlalu cepat
   }
 
   // Fungsi untuk memuat ulang data
@@ -352,24 +389,149 @@ function App() {
     dapatkanLokasi()
   }
 
-  // Fungsi untuk memformat waktu
+  // Fungsi untuk memformat waktu dengan zona waktu yang benar
   const formatWaktu = (date) => {
-    return date.toLocaleTimeString('id-ID', {
+    // Gunakan zona waktu dari lokasi jika tersedia, jika tidak gunakan zona waktu lokal
+    const options = {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false
-    })
+      hour12: false,
+      timeZone: zonaWaktu || Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+    
+    return date.toLocaleTimeString('id-ID', options);
   }
 
-  // Fungsi untuk memformat tanggal
+  // Fungsi untuk memformat tanggal dengan zona waktu yang benar
   const formatTanggal = (date) => {
-    return date.toLocaleDateString('id-ID', {
+    // Gunakan zona waktu dari lokasi jika tersedia, jika tidak gunakan zona waktu lokal
+    const options = {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
-    })
+      year: 'numeric',
+      timeZone: zonaWaktu || Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+    
+    return date.toLocaleDateString('id-ID', options);
+  }
+  
+  // Fungsi untuk mendapatkan nama lokasi berdasarkan koordinat
+  const dapatkanNamaLokasi = async (latitude, longitude) => {
+    try {
+      // Gunakan Nominatim OpenStreetMap API untuk reverse geocoding
+      const apiUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`;
+      
+      const response = await fetchWithFallback(apiUrl);
+      
+      // Periksa apakah respons valid dan memiliki data address
+      if (response && response.address) {
+        const address = response.address;
+        let lokasiText = '';
+        
+        // Prioritaskan kota, kabupaten, atau provinsi
+        if (address.city) {
+          lokasiText = address.city;
+        } else if (address.town) {
+          lokasiText = address.town;
+        } else if (address.county) {
+          lokasiText = address.county;
+        } else if (address.state) {
+          lokasiText = address.state;
+        }
+        
+        // Tambahkan negara jika tersedia
+        if (address.country) {
+          lokasiText = lokasiText ? `${lokasiText}, ${address.country}` : address.country;
+        }
+        
+        if (lokasiText) {
+          setNamaLokasi(lokasiText);
+          console.log('Nama lokasi ditemukan:', lokasiText);
+        } else {
+          // Fallback ke koordinat jika nama lokasi tidak tersedia
+          setNamaLokasi(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+      } else {
+        // Fallback ke koordinat jika respons tidak valid
+        setNamaLokasi(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+      }
+    } catch (error) {
+      console.error('Error mendapatkan nama lokasi:', error);
+      // Fallback ke koordinat jika nama lokasi tidak tersedia
+      setNamaLokasi(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+    }
+  };
+  
+  // Fungsi untuk mendapatkan zona waktu berdasarkan koordinat
+  const dapatkanZonaWaktu = async (latitude, longitude) => {
+    try {
+      // Coba beberapa API zona waktu secara berurutan
+      const apiList = [
+        // TimeZoneDB API
+        `https://api.timezonedb.com/v2.1/get-time-zone?key=VGQJNBVDQBGC&format=json&by=position&lat=${latitude}&lng=${longitude}`,
+        // GeoNames API (alternatif)
+        `https://secure.geonames.org/timezoneJSON?lat=${latitude}&lng=${longitude}&username=akbartk`
+      ];
+      
+      // Coba setiap API secara berurutan
+      for (const apiUrl of apiList) {
+        try {
+          const response = await fetchWithFallback(apiUrl);
+          
+          if (response) {
+            // Format respons TimeZoneDB
+            if (response.status === 'OK' && response.zoneName) {
+              setZonaWaktu(response.zoneName);
+              console.log('Zona waktu terdeteksi (TimeZoneDB):', response.zoneName);
+              return;
+            }
+            
+            // Format respons GeoNames
+            if (response.timezoneId) {
+              setZonaWaktu(response.timezoneId);
+              console.log('Zona waktu terdeteksi (GeoNames):', response.timezoneId);
+              return;
+            }
+          }
+        } catch (apiError) {
+          console.warn(`API zona waktu gagal:`, apiError);
+          // Lanjutkan ke API berikutnya
+        }
+      }
+      
+      // Jika semua API gagal, gunakan perkiraan zona waktu berdasarkan longitude
+      // Ini adalah fallback sederhana yang tidak akurat untuk semua kasus
+      const estimatedTimezone = estimateTimezoneFromLongitude(longitude);
+      setZonaWaktu(estimatedTimezone);
+      console.log('Menggunakan perkiraan zona waktu:', estimatedTimezone);
+    } catch (error) {
+      console.error('Error mendapatkan zona waktu:', error);
+      // Fallback ke zona waktu default browser
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setZonaWaktu(browserTimezone);
+      console.log('Fallback ke zona waktu browser:', browserTimezone);
+    }
+  }
+  
+  // Fungsi helper untuk memperkirakan zona waktu berdasarkan longitude
+  // Ini adalah perkiraan kasar dan tidak memperhitungkan batas politik
+  const estimateTimezoneFromLongitude = (longitude) => {
+    // Perkiraan zona waktu berdasarkan longitude
+    // Setiap 15 derajat ≈ 1 jam perbedaan dari UTC
+    const timezoneHour = Math.round(longitude / 15);
+    
+    // Untuk Indonesia, kita bisa membuat perkiraan yang lebih baik
+    if (longitude >= 95 && longitude <= 141) {
+      if (longitude < 107.5) return 'Asia/Jakarta';      // WIB (UTC+7)
+      else if (longitude < 120) return 'Asia/Makassar';  // WITA (UTC+8)
+      else return 'Asia/Jayapura';                       // WIT (UTC+9)
+    }
+    
+    // Untuk lokasi lain, gunakan perkiraan umum
+    const prefix = timezoneHour >= 0 ? '+' : '';
+    return `Etc/GMT${prefix}${-timezoneHour}`; // Perhatikan tanda negatif karena konvensi Etc/GMT
   }
 
   // Jika masih dalam loading awal, tampilkan splash screen
@@ -431,12 +593,26 @@ function App() {
               {sumberLokasi === 'loading' ? (
                 <Skeleton className="h-4 w-40" />
               ) : (
-                <span>
-                  {lokasi ? `${lokasi.latitude.toFixed(4)}, ${lokasi.longitude.toFixed(4)}` : 'Lokasi tidak tersedia'} 
-                  <span className="text-xs text-muted-foreground ml-1 bg-secondary/50 px-1.5 py-0.5 rounded-full">
-                    {sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : 'Default'}
+                <div className="flex flex-col items-center">
+                  <span className="font-medium">
+                    {namaLokasi || (lokasi ? `${lokasi.latitude.toFixed(4)}, ${lokasi.longitude.toFixed(4)}` : 'Lokasi tidak tersedia')} 
+                    <span className="text-xs text-muted-foreground ml-1 bg-secondary/50 px-1.5 py-0.5 rounded-full">
+                      {sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : 'Default'}
+                    </span>
                   </span>
-                </span>
+                  {/* Tampilkan koordinat di bawah nama lokasi */}
+                  {lokasi && (
+                    <span className="text-xs text-muted-foreground mt-1">
+                      {`${lokasi.latitude.toFixed(4)}, ${lokasi.longitude.toFixed(4)}`}
+                    </span>
+                  )}
+                  {/* Tampilkan zona waktu jika tersedia */}
+                  {zonaWaktu && (
+                    <span className="text-xs text-primary/70 mt-0.5">
+                      {zonaWaktu.replace('_', ' ')}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
