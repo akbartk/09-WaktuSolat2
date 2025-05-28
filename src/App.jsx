@@ -100,31 +100,52 @@ function App() {
     setLoading(true)
     setSumberLokasi('loading')
     
+    // Tampilkan toast untuk memberi tahu pengguna tentang permintaan lokasi
+    if (showToast) {
+      toast({
+        title: "Meminta izin lokasi",
+        description: "Silakan izinkan akses lokasi untuk hasil yang akurat",
+      })
+    }
+    
     // Coba dapatkan lokasi dari Geolocation API
     if (navigator.geolocation) {
       try {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords
-            setLokasi({ latitude, longitude })
-            setSumberLokasi('gps')
-            
-            // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat
-            dapatkanNamaLokasi(latitude, longitude)
-            
-            if (showToast) {
-              toast({
-                title: "Lokasi ditemukan",
-                description: "Menggunakan GPS perangkat Anda",
-              })
+        // Buat Promise untuk menangani getCurrentPosition dengan timeout yang lebih lama
+        const getPositionPromise = new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => resolve(position),
+            (error) => reject(error),
+            { 
+              enableHighAccuracy: true, // Gunakan akurasi tinggi
+              timeout: 10000,          // Timeout 10 detik (lebih lama)
+              maximumAge: 0            // Selalu dapatkan posisi terbaru
             }
-          },
-          async (error) => {
-            console.warn("Geolocation error:", error)
-            // Fallback ke IP geolocation dengan mencoba beberapa API
-            try {
-              // Gunakan fungsi getLocationFromIP yang lebih handal
-              const ipData = await getLocationFromIP();
+          );
+        });
+        
+        // Tunggu hasil dengan timeout yang lebih lama
+        const position = await getPositionPromise;
+        
+        const { latitude, longitude } = position.coords
+        setLokasi({ latitude, longitude })
+        setSumberLokasi('gps')
+        
+        // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat
+        dapatkanNamaLokasi(latitude, longitude)
+        
+        if (showToast) {
+          toast({
+            title: "Lokasi ditemukan",
+            description: "Menggunakan GPS perangkat Anda",
+          })
+        }
+      } catch (error) {
+        console.warn("Geolocation error:", error)
+        // Fallback ke IP geolocation dengan mencoba beberapa API
+        try {
+          // Gunakan fungsi getLocationFromIP yang lebih handal
+          const ipData = await getLocationFromIP();
               
               if (ipData && ipData.latitude && ipData.longitude) {
                 const lat = parseFloat(ipData.latitude);
