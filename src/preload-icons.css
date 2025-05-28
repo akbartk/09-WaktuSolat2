@@ -1,0 +1,61 @@
+/* Preload Icons CSS */
+
+/* Animasi spin yang lebih lambat untuk loading spinner */
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Preload SVG ikon untuk menghindari flash hitam */
+.icon-preload {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  z-index: -1;
+}
+
+/* Transisi yang lebih mulus untuk elemen UI */
+.card-transition {
+  transition: all 0.5s ease-in-out;
+}
+
+/* Animasi fade-in yang lebih halus */
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-smoothFadeIn {
+  animation: smoothFadeIn 0.8s ease-out forwards;
+}
+
+/* Memastikan ikon SVG memiliki transisi yang mulus */
+svg {
+  transition: all 0.3s ease;
+}
+
+/* Preload font untuk menghindari font flickering */
+body::before {
+  content: "";
+  font-family: Inter, system-ui, sans-serif;
+  opacity: 0;
+  height: 0;
+  width: 0;
+  overflow: hidden;
+  position: absolute;
+}

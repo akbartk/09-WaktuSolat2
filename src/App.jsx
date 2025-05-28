@@ -7,6 +7,7 @@ import { useTheme } from './components/theme-provider'
 import { useToast } from './components/ui/use-toast'
 import { Clock, MapPin, Moon, Sun, RefreshCw } from 'lucide-react'
 import { forceStylesheetReload } from './forceRefresh'
+import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
   // State untuk data aplikasi
@@ -15,6 +16,8 @@ function App() {
   const [jadwalSholat, setJadwalSholat] = useState(null)
   const [tanggalHijriah, setTanggalHijriah] = useState('')
   const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true) // State untuk loading awal
+  const [iconsLoaded, setIconsLoaded] = useState(false) // State untuk memastikan ikon sudah dimuat
   const [sumberLokasi, setSumberLokasi] = useState('loading')
   const [sholatBerikutnya, setSholatBerikutnya] = useState(null)
   const [countdown, setCountdown] = useState('')
@@ -34,12 +37,39 @@ function App() {
     return () => clearInterval(interval)
   }, [jadwalSholat])
   
-  // Efek untuk memaksa refresh stylesheet CSS saat aplikasi dimuat
+  // Efek untuk memaksa refresh stylesheet CSS dan preload ikon
   useEffect(() => {
+    // Preload ikon-ikon SVG
+    const iconImages = [
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>',
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 12a11 11 0 1 1-22 0 11 11 0 0 1 22 0Z"/><path d="m8 12 3 3 5-5"/></svg>'
+    ];
+    
+    const preloadIcons = async () => {
+      const promises = iconImages.map(src => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // Resolve even on error to avoid blocking
+          img.src = src;
+        });
+      });
+      
+      await Promise.all(promises);
+      setIconsLoaded(true);
+    };
+    
+    preloadIcons();
+    
     // Tunggu sebentar untuk memastikan DOM sudah siap
     setTimeout(() => {
       forceStylesheetReload();
       console.log('Stylesheet di-refresh saat aplikasi dimuat');
+      // Setelah 1.5 detik, anggap loading awal selesai
+      setTimeout(() => {
+        setInitialLoading(false);
+      }, 1500);
     }, 500);
   }, [])
 
@@ -348,6 +378,23 @@ function App() {
     })
   }
 
+  // Jika masih dalam loading awal, tampilkan splash screen
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
+              <Clock className="h-8 w-8 text-primary animate-spin-slow" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Jadwal Sholat</h1>
+          <p className="text-muted-foreground">Memuat data waktu sholat...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center">
       <div className="w-full max-w-md animate-fadeIn">
@@ -439,11 +486,69 @@ function App() {
                       style={{animationDelay: `${450 + (index * 100)}ms`}}
                     >
                       <span className="font-medium capitalize flex items-center">
-                        {key === 'subuh' && <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
-                        {key === 'dzuhur' && <svg className="w-4 h-4 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
-                        {key === 'ashar' && <svg className="w-4 h-4 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
-                        {key === 'maghrib' && <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
-                        {key === 'isya' && <svg className="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
+                        {/* Menggunakan komponen ikon yang lebih sederhana dan teroptimasi */}
+                        {key === 'subuh' && (
+                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-blue-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="4"/>
+                              <path d="M12 2v2"/>
+                              <path d="M12 20v2"/>
+                              <path d="m4.93 4.93 1.41 1.41"/>
+                              <path d="m17.66 17.66 1.41 1.41"/>
+                              <path d="M2 12h2"/>
+                              <path d="M20 12h2"/>
+                              <path d="m6.34 17.66-1.41 1.41"/>
+                              <path d="m19.07 4.93-1.41 1.41"/>
+                            </svg>
+                          </span>
+                        )}
+                        {key === 'dzuhur' && (
+                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-yellow-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="4"/>
+                              <path d="M12 2v2"/>
+                              <path d="M12 20v2"/>
+                              <path d="m4.93 4.93 1.41 1.41"/>
+                              <path d="m17.66 17.66 1.41 1.41"/>
+                              <path d="M2 12h2"/>
+                              <path d="M20 12h2"/>
+                              <path d="m6.34 17.66-1.41 1.41"/>
+                              <path d="m19.07 4.93-1.41 1.41"/>
+                            </svg>
+                          </span>
+                        )}
+                        {key === 'ashar' && (
+                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-orange-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="4"/>
+                              <path d="M12 2v2"/>
+                              <path d="M12 20v2"/>
+                              <path d="m4.93 4.93 1.41 1.41"/>
+                              <path d="m17.66 17.66 1.41 1.41"/>
+                              <path d="M2 12h2"/>
+                              <path d="M20 12h2"/>
+                              <path d="m6.34 17.66-1.41 1.41"/>
+                              <path d="m19.07 4.93-1.41 1.41"/>
+                            </svg>
+                          </span>
+                        )}
+                        {key === 'maghrib' && (
+                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-red-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3a6 6 0 0 0-6 9h12a6 6 0 0 0-6-9Z"/>
+                              <path d="M6 12h12"/>
+                              <path d="M6 16h12"/>
+                              <path d="M6 20h12"/>
+                            </svg>
+                          </span>
+                        )}
+                        {key === 'isya' && (
+                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-indigo-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                            </svg>
+                          </span>
+                        )}
                         {key}
                       </span>
                       <span className={`${sholatBerikutnya === key ? 'font-bold text-primary' : ''} bg-background/80 px-2 py-0.5 rounded`}>
