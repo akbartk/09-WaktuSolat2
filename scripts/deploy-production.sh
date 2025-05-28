@@ -62,8 +62,8 @@ echo -e "Domain: ${DOMAIN:-akbartk.info}"
 echo -e "HTTP Port: ${HTTP_PORT:-3030}"
 echo -e "API Port: ${PROD_PORT:-3005}"
 
-docker-compose -f docker-compose.yml down
-docker-compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml up -d --build
 
 echo -e "\n${GREEN}[SELESAI]${NC} Aplikasi Jadwal Sholat berhasil di-deploy ke produksi!"
 echo -e "Aplikasi dapat diakses melalui: ${GREEN}http://${DOMAIN:-akbartk.info}:${HTTP_PORT:-3030}${NC}"
