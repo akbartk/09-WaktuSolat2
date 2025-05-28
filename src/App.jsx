@@ -118,7 +118,7 @@ function App() {
             (error) => reject(error),
             { 
               enableHighAccuracy: true, // Gunakan akurasi tinggi
-              timeout: 10000,          // Timeout 10 detik (lebih lama)
+              timeout: 15000,          // Timeout 15 detik (lebih lama)
               maximumAge: 0            // Selalu dapatkan posisi terbaru
             }
           );
@@ -146,74 +146,62 @@ function App() {
         try {
           // Gunakan fungsi getLocationFromIP yang lebih handal
           const ipData = await getLocationFromIP();
-              
-              if (ipData && ipData.latitude && ipData.longitude) {
-                const lat = parseFloat(ipData.latitude);
-                const lng = parseFloat(ipData.longitude);
-                
-                setLokasi({ 
-                  latitude: lat, 
-                  longitude: lng 
-                });
-                setSumberLokasi('ip');
-                
-                // Jika data memiliki informasi kota dan negara, gunakan itu
-                if (ipData.city && ipData.country) {
-                  setNamaLokasi(`${ipData.city}, ${ipData.country}`);
-                  // Jika sudah mendapatkan nama lokasi, tidak perlu memanggil dapatkanNamaLokasi
-                } else {
-                  // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat jika tidak ada di respons API
-                  dapatkanNamaLokasi(lat, lng);
-                }
-                
-                // Jika data memiliki informasi timezone, gunakan itu
-                if (ipData.timezone) {
-                  setZonaWaktu(ipData.timezone);
-                } else {
-                  // Dapatkan zona waktu berdasarkan koordinat jika tidak ada di respons API
-                  dapatkanZonaWaktu(lat, lng);
-                }
-                
-                if (showToast) {
-                  toast({
-                    title: "Menggunakan lokasi berdasarkan IP",
-                    description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
-                  });
-                }
-              } else {
-                throw new Error('Tidak dapat mendapatkan lokasi dari IP');
-              }
-            } catch (ipError) {
-              console.error("IP Geolocation error:", ipError);
-              // Fallback ke lokasi default (Jakarta)
-              setLokasi({ 
-                latitude: -6.2088, 
-                longitude: 106.8456 
-              });
-              setSumberLokasi('default');
-              setNamaLokasi('Jakarta, Indonesia');
-              setZonaWaktu('Asia/Jakarta');
-              
-              if (showToast) {
-                toast({
-                  title: "Menggunakan lokasi default",
-                  description: "Lokasi diatur ke Jakarta",
-                  variant: "destructive"
-                });
-              }
+          
+          if (ipData && ipData.latitude && ipData.longitude) {
+            const lat = parseFloat(ipData.latitude);
+            const lng = parseFloat(ipData.longitude);
+            
+            setLokasi({ 
+              latitude: lat, 
+              longitude: lng 
+            });
+            setSumberLokasi('ip');
+            
+            // Jika data memiliki informasi kota dan negara, gunakan itu
+            if (ipData.city && ipData.country) {
+              setNamaLokasi(`${ipData.city}, ${ipData.country}`);
+              // Jika sudah mendapatkan nama lokasi, tidak perlu memanggil dapatkanNamaLokasi
+            } else {
+              // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat jika tidak ada di respons API
+              dapatkanNamaLokasi(lat, lng);
             }
-          },
-          { timeout: 5000 }
-        )
-      } catch (error) {
-        console.error("Geolocation error:", error)
-        setLokasi({ 
-          latitude: -6.2088, 
-          longitude: 106.8456 
-        })
-        setSumberLokasi('default')
-        setNamaLokasi('Jakarta, Indonesia')
-        setZonaWaktu('Asia/Jakarta')
+            
+            // Jika data memiliki informasi timezone, gunakan itu
+            if (ipData.timezone) {
+              setZonaWaktu(ipData.timezone);
+            } else {
+              // Dapatkan zona waktu berdasarkan koordinat jika tidak ada di respons API
+              dapatkanZonaWaktu(lat, lng);
+            }
+            
+            if (showToast) {
+              toast({
+                title: "Menggunakan lokasi berdasarkan IP",
+                description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
+              });
+            }
+          } else {
+            throw new Error('Tidak dapat mendapatkan lokasi dari IP');
+          }
+        } catch (ipError) {
+          console.error("IP Geolocation error:", ipError);
+          // Fallback ke lokasi default (Jakarta)
+          setLokasi({ 
+            latitude: -6.2088, 
+            longitude: 106.8456 
+          });
+          setSumberLokasi('default');
+          setNamaLokasi('Jakarta, Indonesia');
+          setZonaWaktu('Asia/Jakarta');
+          
+          if (showToast) {
+            toast({
+              title: "Menggunakan lokasi default",
+              description: "Lokasi diatur ke Jakarta",
+              variant: "destructive"
+            });
+          }
+        }
       }
     } else {
       // Browser tidak mendukung Geolocation
