@@ -115,7 +115,7 @@ function App() {
             console.warn("Geolocation error:", error)
             // Fallback ke IP geolocation tanpa token (free tier)
             try {
-              const response = await fetch('https://ipapi.co/json/')
+              const response = await fetch('/api/ipapi/json/')
               const data = await response.json()
               if (data && data.latitude && data.longitude) {
                 setLokasi({ 
@@ -186,8 +186,8 @@ function App() {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const yyyy = today.getFullYear()
       
-      // Gunakan AlAdhan API
-      const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=20`
+      // Gunakan proxy API lokal untuk AlAdhan API
+      const url = `/api/aladhan/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=20`
       
       const response = await fetch(url)
       if (!response.ok) {
