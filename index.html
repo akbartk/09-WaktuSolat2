@@ -7,6 +7,153 @@
     <meta name="theme-color" content="#10b981" />
     <meta name="description" content="Aplikasi Jadwal Sholat dengan lokasi real-time" />
     <title>Waktu Solat AkbarTK</title>
+    <!-- Preload font untuk menghindari FOUT (Flash of Unstyled Text) -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+    
+    <!-- Splash screen styles -->
+    <style>
+      :root {
+        --background: #020817;
+        --foreground: #f8fafc;
+        --primary: #10b981;
+        --muted: #64748b;
+      }
+      
+      @media (prefers-color-scheme: light) {
+        :root {
+          --background: #ffffff;
+          --foreground: #020817;
+          --primary: #10b981;
+          --muted: #64748b;
+        }
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        background-color: var(--background);
+        color: var(--foreground);
+      }
+      
+      #splash-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--background);
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      .splash-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background-color: rgba(16, 185, 129, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+      }
+      
+      .splash-icon svg {
+        width: 40px;
+        height: 40px;
+        color: var(--primary);
+        animation: pulse 2s infinite;
+      }
+      
+      .splash-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: var(--foreground);
+      }
+      
+      .splash-subtitle {
+        font-size: 16px;
+        color: var(--muted);
+      }
+      
+      @keyframes pulse {
+        0% {
+          transform: scale(0.95);
+          opacity: 0.8;
+        }
+        70% {
+          transform: scale(1.05);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(0.95);
+          opacity: 0.8;
+        }
+      }
+      
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      
+      .loading-dots {
+        display: flex;
+        margin-top: 16px;
+      }
+      
+      .loading-dots .dot {
+        width: 8px;
+        height: 8px;
+        margin: 0 4px;
+        border-radius: 50%;
+        background-color: var(--primary);
+        animation: dot-pulse 1.5s infinite ease-in-out;
+      }
+      
+      .loading-dots .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      
+      .loading-dots .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      
+      @keyframes dot-pulse {
+        0%, 100% {
+          opacity: 0.4;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.2);
+        }
+      }
+      
+      #root {
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+      }
+      
+      .loaded #root {
+        opacity: 1;
+      }
+      
+      .loaded #splash-screen {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+    
     <!-- Script untuk menangani routing di GitHub Pages -->
     <script type="text/javascript">
       // Redirect dari GitHub Pages 404 ke halaman utama
@@ -20,7 +167,43 @@
     </script>
   </head>
   <body>
+    <!-- Splash screen yang ditampilkan sebelum React dimuat -->
+    <div id="splash-screen">
+      <div class="splash-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <h1 class="splash-title">Jadwal Sholat</h1>
+      <p class="splash-subtitle">Memuat data waktu sholat...</p>
+      <div class="loading-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+    
+    <!-- Root element untuk React -->
     <div id="root"></div>
+    
+    <!-- Script untuk menghilangkan splash screen setelah React dimuat -->
+    <script>
+      window.addEventListener('load', function() {
+        // Beri waktu tambahan untuk memastikan React dimuat dengan baik
+        setTimeout(function() {
+          document.body.classList.add('loaded');
+          // Hapus splash screen setelah transisi selesai
+          setTimeout(function() {
+            var splashScreen = document.getElementById('splash-screen');
+            if (splashScreen) {
+              splashScreen.style.display = 'none';
+            }
+          }, 500);
+        }, 1000);
+      });
+    </script>
+    
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

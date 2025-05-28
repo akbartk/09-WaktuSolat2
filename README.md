@@ -179,17 +179,17 @@ jadwal-sholat/
 
 ## Checklist Testing
 
-- [ ] Test dalam development container (docker-compose.dev.yml)
-- [ ] Test dalam production container (docker-compose.yml)
-- [ ] Test dengan izin GPS diberikan
-- [ ] Test dengan izin GPS ditolak
-- [ ] Test dengan koneksi jaringan terputus
-- [ ] Test di berbagai timezone
-- [ ] Test transisi waktu sholat
-- [ ] Test desain responsif di berbagai ukuran layar
-- [ ] Test dark mode dan light mode
-- [ ] Test accessibility
-- [ ] Test skenario fallback API
+- [✔] Test dalam development container (docker-compose.dev.yml)
+- [✔] Test dalam production container (docker-compose.yml)
+- [✔] Test dengan izin GPS diberikan
+- [✔] Test dengan izin GPS ditolak
+- [✔] Test dengan koneksi jaringan terputus
+- [✔] Test di berbagai timezone
+- [✔] Test transisi waktu sholat
+- [✔] Test desain responsif di berbagai ukuran layar
+- [✔] Test dark mode dan light mode
+- [✔] Test accessibility
+- [✔] Test skenario fallback API
 
 ## Kontribusi
 
