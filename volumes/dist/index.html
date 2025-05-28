@@ -7,9 +7,7 @@
     <meta name="theme-color" content="#10b981" />
     <meta name="description" content="Aplikasi Jadwal Sholat dengan lokasi real-time" />
     <title>Waktu Solat AkbarTK</title>
-    <!-- Preload font untuk menghindari FOUT (Flash of Unstyled Text) -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+    <!-- Menggunakan font sistem untuk menghindari masalah CORS -->
     
     <!-- Splash screen styles -->
     <style>
@@ -32,7 +30,7 @@
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
         background-color: var(--background);
         color: var(--foreground);
       }
@@ -139,6 +137,15 @@
         }
       }
       
+      /* Preload SVG ikon */
+      .svg-preload {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+        z-index: -1;
+      }
+      
       #root {
         opacity: 0;
         transition: opacity 0.5s ease-in;
@@ -151,6 +158,17 @@
       .loaded #splash-screen {
         opacity: 0;
         pointer-events: none;
+      }
+      
+      /* Menghindari FOUC (Flash of Unstyled Content) */
+      .no-fouc {
+        visibility: hidden;
+      }
+      
+      /* Memperbaiki tampilan ikon */
+      svg {
+        display: inline-block;
+        vertical-align: middle;
       }
     </style>
     
@@ -168,13 +186,28 @@
     <script type="module" crossorigin src="/assets/index-o_jXI3Y4.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-Cl1vr6mx.css">
   </head>
-  <body>
+  <body class="no-fouc">
+    <!-- Preload SVG icons -->
+    <div class="svg-preload" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0">
+        <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </symbol>
+      </svg>
+    </div>
     <!-- Splash screen yang ditampilkan sebelum React dimuat -->
     <div id="splash-screen">
       <div class="splash-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
+        <svg width="40" height="40" viewBox="0 0 24 24">
+          <use href="#icon-clock" />
         </svg>
       </div>
       <h1 class="splash-title">Jadwal Sholat</h1>
@@ -191,7 +224,10 @@
     
     <!-- Script untuk menghilangkan splash screen setelah React dimuat -->
     <script>
-      window.addEventListener('load', function() {
+      document.addEventListener('DOMContentLoaded', function() {
+        // Menghilangkan kelas no-fouc untuk menampilkan konten
+        document.body.classList.remove('no-fouc');
+        
         // Beri waktu tambahan untuk memastikan React dimuat dengan baik
         setTimeout(function() {
           document.body.classList.add('loaded');
@@ -202,7 +238,7 @@
               splashScreen.style.display = 'none';
             }
           }, 500);
-        }, 1000);
+        }, 2000); // Menambah waktu loading untuk memastikan semua aset dimuat
       });
     </script>
     
