@@ -9,6 +9,7 @@ import { Clock, MapPin, Moon, Sun, RefreshCw } from 'lucide-react'
 import { forceStylesheetReload } from './forceRefresh'
 import { corsProxy, fetchWithFallback, getLocationFromIP } from './cors-proxy' // Import fungsi proxy CORS, fetchWithFallback, dan getLocationFromIP
 import PrayerIcon from './components/prayer/PrayerIcon' // Production Prayer Icon Component
+import { getCalculationMethod, getContinentFromCoordinates, formatMethodDisplay } from './utils/globalPrayerMethods' // Global prayer methods
 import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
@@ -25,6 +26,8 @@ function App() {
   const [sholatBerikutnya, setSholatBerikutnya] = useState(null)
   const [countdown, setCountdown] = useState('')
   const [zonaWaktu, setZonaWaktu] = useState('') // State untuk menyimpan zona waktu
+  const [prayerMethod, setPrayerMethod] = useState(null) // State untuk calculation method
+  const [countryInfo, setCountryInfo] = useState(null) // State untuk country information
   
   // Hooks untuk tema dan toast
   const { theme, setTheme } = useTheme()
@@ -233,10 +236,18 @@ function App() {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const yyyy = today.getFullYear()
       
-      // Gunakan fetchWithFallback untuk AlAdhan API
-      const apiUrl = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=20`
+      // Determine calculation method berdasarkan lokasi
+      let method = 3; // Default to Muslim World League
+      if (prayerMethod && prayerMethod.method) {
+        method = prayerMethod.method;
+      }
+      
+      // Gunakan fetchWithFallback untuk AlAdhan API dengan method yang sesuai
+      const apiUrl = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=${method}`
       
       const data = await fetchWithFallback(apiUrl)
+      
+      console.log(`Using prayer calculation method ${method} for location:`, namaLokasi);
       
       // Ekstrak jadwal sholat dari respons
       const timings = data.data.timings
@@ -427,7 +438,7 @@ function App() {
     return date.toLocaleDateString('id-ID', options);
   }
   
-  // Fungsi untuk mendapatkan nama lokasi berdasarkan koordinat
+  // Fungsi untuk mendapatkan nama lokasi dan country info berdasarkan koordinat
   const dapatkanNamaLokasi = async (latitude, longitude) => {
     try {
       // Gunakan Nominatim OpenStreetMap API untuk reverse geocoding
@@ -456,6 +467,22 @@ function App() {
           lokasiText = lokasiText ? `${lokasiText}, ${address.country}` : address.country;
         }
         
+        // Set country information untuk prayer method calculation
+        if (address.country_code && address.country) {
+          const continent = getContinentFromCoordinates(latitude, longitude);
+          const methodInfo = getCalculationMethod(address.country_code.toUpperCase(), continent);
+          
+          setCountryInfo({
+            countryCode: address.country_code.toUpperCase(),
+            countryName: address.country,
+            continent: continent
+          });
+          
+          setPrayerMethod(methodInfo);
+          
+          console.log('Prayer method selected:', methodInfo);
+        }
+        
         if (lokasiText) {
           setNamaLokasi(lokasiText);
           console.log('Nama lokasi ditemukan:', lokasiText);
@@ -466,11 +493,21 @@ function App() {
       } else {
         // Fallback ke koordinat jika respons tidak valid
         setNamaLokasi(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        
+        // Set default prayer method untuk unknown location
+        const continent = getContinentFromCoordinates(latitude, longitude);
+        const methodInfo = getCalculationMethod('UNKNOWN', continent);
+        setPrayerMethod(methodInfo);
       }
     } catch (error) {
       console.error('Error mendapatkan nama lokasi:', error);
       // Fallback ke koordinat jika nama lokasi tidak tersedia
       setNamaLokasi(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+      
+      // Set default prayer method untuk error case
+      const continent = getContinentFromCoordinates(latitude, longitude);
+      const methodInfo = getCalculationMethod('UNKNOWN', continent);
+      setPrayerMethod(methodInfo);
     }
   };
   
@@ -565,8 +602,8 @@ function App() {
               <Clock className="h-8 w-8 text-primary animate-spin-slow" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-2">Jadwal Sholat</h1>
-          <p className="text-muted-foreground">Memuat data waktu sholat...</p>
+          <h1 className="text-2xl font-bold mb-2">Global Prayer Times</h1>
+          <p className="text-muted-foreground">Loading prayer schedule for your location...</p>
         </div>
       </div>
     );
@@ -577,7 +614,7 @@ function App() {
       <div className="w-full max-w-md animate-fadeIn">
         <Card className="w-full shadow-lg border border-primary/20 animate-glow overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Jadwal Sholat</CardTitle>
+            <CardTitle>Global Prayer Times</CardTitle>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="icon" onClick={refreshData}>
                 <RefreshCw className="h-5 w-5" />
@@ -697,10 +734,21 @@ function App() {
             <div className="mt-6 text-center text-xs text-muted-foreground animate-slideUp" style={{animationDelay: '950ms'}}>
               <div className="flex items-center justify-center mb-1">
                 <svg className="w-4 h-4 mr-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                <span>Waktu Solat AkbarTK © 2025</span>
+                <span>Waktu Solat Global © 2025</span>
               </div>
               <div className="text-primary/70 font-medium">
-                Menggunakan metode perhitungan Kementerian Agama RI
+                {prayerMethod ? (
+                  <>
+                    Using {formatMethodDisplay(prayerMethod, countryInfo?.countryName)}
+                    {countryInfo && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {countryInfo.continent} • Method {prayerMethod.method}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  'Calculating prayer method for your location...'
+                )}
               </div>
             </div>
           </CardContent>
