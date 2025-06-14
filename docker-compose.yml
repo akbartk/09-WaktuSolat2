@@ -4,7 +4,7 @@ services:
   jadwal-sholat-app:
     build:
       context: .
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.direct
     ports:
       - "${PROD_PORT:-3005}:3005"
     volumes:

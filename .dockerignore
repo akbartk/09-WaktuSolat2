@@ -3,7 +3,7 @@ node_modules
 
 # Ignore build artifacts
 build
-dist
+# dist - temporarily commented for direct deployment
 
 # Ignore development files
 .git
