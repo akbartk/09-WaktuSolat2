@@ -1,15 +1,20 @@
-// File untuk mengatasi masalah CORS dengan menggunakan proxy publik
+// Production CORS Proxy Handler dengan environment-aware configuration
 
-// Daftar proxy CORS yang tersedia
+// Production environment configuration
+const PRODUCTION_CONFIG = {
+  timeout: parseInt(process.env.REACT_APP_API_TIMEOUT || '10000'),
+  userAgent: `WaktuSolat App v${process.env.REACT_APP_VERSION || '2.0.0'} (${process.env.REACT_APP_ENVIRONMENT || 'production'})`,
+  retryAttempts: 3,
+  retryDelay: 1000
+};
+
+// Daftar proxy CORS yang tersedia - Production grade
 const proxyList = [
   (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url) => `https://cors-anywhere.herokuapp.com/${url}`,
-  (url) => `https://cors.bridged.cc/${url}`,
-  (url) => `https://crossorigin.me/${url}`,
-  // Tambahkan proxy baru yang lebih reliabel
   (url) => `https://proxy.cors.sh/${url}`,
   (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  // Removed unreliable proxies for production stability
 ];
 
 // Fungsi untuk mencoba beberapa proxy secara berurutan
@@ -20,7 +25,7 @@ export const corsProxy = async (url) => {
       mode: 'cors',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'WaktuSolat App (https://akbartk.info)'
+        'User-Agent': PRODUCTION_CONFIG.userAgent
       }
     });
     if (directResponse.ok) {
@@ -38,7 +43,7 @@ export const corsProxy = async (url) => {
       const response = await fetch(proxiedUrl, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'WaktuSolat App (https://akbartk.info)'
+          'User-Agent': PRODUCTION_CONFIG.userAgent
         }
       });
       if (response.ok) {
@@ -63,7 +68,7 @@ export const fetchWithFallback = async (url) => {
     const response = await fetch(proxiedUrl, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'WaktuSolat App (https://akbartk.info)'
+        'User-Agent': PRODUCTION_CONFIG.userAgent
       }
     });
     
@@ -95,7 +100,7 @@ export const getLocationFromIP = async () => {
       const response = await fetch(api, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'WaktuSolat App (https://akbartk.info)'
+          'User-Agent': PRODUCTION_CONFIG.userAgent
         }
       });
       

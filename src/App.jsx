@@ -8,6 +8,7 @@ import { useToast } from './components/ui/use-toast'
 import { Clock, MapPin, Moon, Sun, RefreshCw } from 'lucide-react'
 import { forceStylesheetReload } from './forceRefresh'
 import { corsProxy, fetchWithFallback, getLocationFromIP } from './cors-proxy' // Import fungsi proxy CORS, fetchWithFallback, dan getLocationFromIP
+import PrayerIcon from './components/prayer/PrayerIcon' // Production Prayer Icon Component
 import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
@@ -476,13 +477,24 @@ function App() {
   // Fungsi untuk mendapatkan zona waktu berdasarkan koordinat
   const dapatkanZonaWaktu = async (latitude, longitude) => {
     try {
+      // Production API configuration dengan environment variables
+      const TIMEZONE_DB_KEY = process.env.REACT_APP_TIMEZONE_DB_KEY;
+      const GEONAMES_USERNAME = process.env.REACT_APP_GEONAMES_USERNAME;
+      
       // Coba beberapa API zona waktu secara berurutan
-      const apiList = [
-        // TimeZoneDB API
-        `https://api.timezonedb.com/v2.1/get-time-zone?key=VGQJNBVDQBGC&format=json&by=position&lat=${latitude}&lng=${longitude}`,
-        // GeoNames API (alternatif)
-        `https://secure.geonames.org/timezoneJSON?lat=${latitude}&lng=${longitude}&username=akbartk`
-      ];
+      const apiList = [];
+      
+      // Hanya tambahkan API jika key tersedia
+      if (TIMEZONE_DB_KEY && TIMEZONE_DB_KEY !== 'your_timezone_db_api_key_here') {
+        apiList.push(`https://api.timezonedb.com/v2.1/get-time-zone?key=${TIMEZONE_DB_KEY}&format=json&by=position&lat=${latitude}&lng=${longitude}`);
+      }
+      
+      if (GEONAMES_USERNAME && GEONAMES_USERNAME !== 'your_geonames_username_here') {
+        apiList.push(`https://secure.geonames.org/timezoneJSON?lat=${latitude}&lng=${longitude}&username=${GEONAMES_USERNAME}`);
+      }
+      
+      // Fallback API yang tidak memerlukan key
+      apiList.push(`https://worldtimeapi.org/api/timezone`); // Backup API
       
       // Coba setiap API secara berurutan
       for (const apiUrl of apiList) {
@@ -665,69 +677,7 @@ function App() {
                       style={{animationDelay: `${450 + (index * 100)}ms`}}
                     >
                       <span className="font-medium capitalize flex items-center">
-                        {/* Menggunakan komponen ikon yang lebih sederhana dan teroptimasi */}
-                        {key === 'subuh' && (
-                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-blue-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="4"/>
-                              <path d="M12 2v2"/>
-                              <path d="M12 20v2"/>
-                              <path d="m4.93 4.93 1.41 1.41"/>
-                              <path d="m17.66 17.66 1.41 1.41"/>
-                              <path d="M2 12h2"/>
-                              <path d="M20 12h2"/>
-                              <path d="m6.34 17.66-1.41 1.41"/>
-                              <path d="m19.07 4.93-1.41 1.41"/>
-                            </svg>
-                          </span>
-                        )}
-                        {key === 'dzuhur' && (
-                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-yellow-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="4"/>
-                              <path d="M12 2v2"/>
-                              <path d="M12 20v2"/>
-                              <path d="m4.93 4.93 1.41 1.41"/>
-                              <path d="m17.66 17.66 1.41 1.41"/>
-                              <path d="M2 12h2"/>
-                              <path d="M20 12h2"/>
-                              <path d="m6.34 17.66-1.41 1.41"/>
-                              <path d="m19.07 4.93-1.41 1.41"/>
-                            </svg>
-                          </span>
-                        )}
-                        {key === 'ashar' && (
-                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-orange-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="4"/>
-                              <path d="M12 2v2"/>
-                              <path d="M12 20v2"/>
-                              <path d="m4.93 4.93 1.41 1.41"/>
-                              <path d="m17.66 17.66 1.41 1.41"/>
-                              <path d="M2 12h2"/>
-                              <path d="M20 12h2"/>
-                              <path d="m6.34 17.66-1.41 1.41"/>
-                              <path d="m19.07 4.93-1.41 1.41"/>
-                            </svg>
-                          </span>
-                        )}
-                        {key === 'maghrib' && (
-                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-red-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 3a6 6 0 0 0-6 9h12a6 6 0 0 0-6-9Z"/>
-                              <path d="M6 12h12"/>
-                              <path d="M6 16h12"/>
-                              <path d="M6 20h12"/>
-                            </svg>
-                          </span>
-                        )}
-                        {key === 'isya' && (
-                          <span className="w-5 h-5 mr-2 flex items-center justify-center text-indigo-500">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-                            </svg>
-                          </span>
-                        )}
+                        <PrayerIcon prayerType={key} />
                         {key}
                       </span>
                       <span className={`${sholatBerikutnya === key ? 'font-bold text-primary' : ''} bg-background/80 px-2 py-0.5 rounded`}>
