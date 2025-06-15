@@ -87,42 +87,121 @@ export const fetchWithFallback = async (url) => {
 
 // Fungsi alternatif untuk mendapatkan lokasi dari IP tanpa menggunakan proxy
 export const getLocationFromIP = async () => {
-  // Daftar API geolokasi IP alternatif
+  // Daftar API geolokasi IP alternatif - urutan berdasarkan reliabilitas
   const ipApis = [
-    'https://ipapi.co/json/',
-    'https://ipinfo.io/json',
-    'https://api.ipify.org/?format=json',
-    'https://ipwho.is/'
+    {
+      url: 'https://ipapi.co/json/',
+      parser: (data) => ({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city,
+        country: data.country_name,
+        timezone: data.timezone
+      })
+    },
+    {
+      url: 'https://ipinfo.io/json',
+      parser: (data) => {
+        const coords = data.loc ? data.loc.split(',') : [null, null];
+        return {
+          latitude: coords[0],
+          longitude: coords[1],
+          city: data.city,
+          country: data.country,
+          timezone: data.timezone
+        };
+      }
+    },
+    {
+      url: 'https://ipwhois.app/json/',
+      parser: (data) => ({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city,
+        country: data.country,
+        timezone: data.timezone
+      })
+    },
+    {
+      url: 'https://ipwho.is/',
+      parser: (data) => ({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city,
+        country: data.country,
+        timezone: data.timezone?.id || data.timezone
+      })
+    },
+    {
+      url: 'https://freegeoip.app/json/',
+      parser: (data) => ({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city,
+        country: data.country_name,
+        timezone: data.time_zone
+      })
+    },
+    {
+      url: 'https://api.ip2location.com/v2/?format=json',
+      parser: (data) => ({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city_name,
+        country: data.country_name,
+        timezone: data.time_zone
+      })
+    }
   ];
   
-  for (const api of ipApis) {
+  console.log(`🔄 Mencoba ${ipApis.length} API IP geolocation...`);
+  
+  for (let i = 0; i < ipApis.length; i++) {
+    const api = ipApis[i];
     try {
-      const response = await fetch(api, {
+      console.log(`📡 Mencoba API ${i+1}: ${api.url}`);
+      
+      const response = await fetch(api.url, {
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
           'User-Agent': PRODUCTION_CONFIG.userAgent
-        }
+        },
+        timeout: 5000, // 5 detik timeout per API
+        cache: 'no-cache'
       });
       
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.warn(`❌ API ${i+1} status: ${response.status}`);
+        continue;
+      }
       
       const data = await response.json();
+      console.log(`📊 API ${i+1} response:`, data);
       
-      // Format respons agar konsisten
-      return {
-        latitude: data.latitude || data.loc?.split(',')[0] || null,
-        longitude: data.longitude || data.loc?.split(',')[1] || null,
-        city: data.city,
-        country: data.country || data.country_name,
-        timezone: data.timezone
-      };
+      // Parse data sesuai format API
+      const parsed = api.parser(data);
+      
+      // Validasi data yang diperlukan
+      if (parsed.latitude && parsed.longitude) {
+        console.log(`✅ API ${i+1} berhasil:`, parsed);
+        return {
+          latitude: parseFloat(parsed.latitude),
+          longitude: parseFloat(parsed.longitude),
+          city: parsed.city || 'Unknown City',
+          country: parsed.country || 'Unknown Country',
+          timezone: parsed.timezone
+        };
+      } else {
+        console.warn(`⚠️ API ${i+1} data tidak lengkap:`, parsed);
+      }
     } catch (error) {
-      console.warn(`IP API ${api} failed:`, error.message);
+      console.warn(`❌ API ${i+1} error:`, error.message);
       // Lanjutkan ke API berikutnya
     }
   }
   
-  // Jika semua API gagal
+  console.error('🚨 Semua IP geolocation API gagal');
   return null;
 };
 

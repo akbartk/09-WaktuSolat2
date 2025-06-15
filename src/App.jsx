@@ -10,6 +10,7 @@ import { forceStylesheetReload } from './forceRefresh'
 import { corsProxy, fetchWithFallback, getLocationFromIP } from './cors-proxy' // Import fungsi proxy CORS, fetchWithFallback, dan getLocationFromIP
 import PrayerIcon from './components/prayer/PrayerIcon' // Production Prayer Icon Component
 import { getCalculationMethod, getContinentFromCoordinates, formatMethodDisplay } from './utils/globalPrayerMethods' // Global prayer methods
+import { t, getCurrentLanguage, isRTL, formatLocalizedDate, formatLocalizedTime } from './utils/i18n' // Internationalization
 import './preload-icons.css' // Menambahkan CSS untuk preload ikon
 
 function App() {
@@ -28,10 +29,24 @@ function App() {
   const [zonaWaktu, setZonaWaktu] = useState('') // State untuk menyimpan zona waktu
   const [prayerMethod, setPrayerMethod] = useState(null) // State untuk calculation method
   const [countryInfo, setCountryInfo] = useState(null) // State untuk country information
+  const [currentLang, setCurrentLang] = useState(getCurrentLanguage()) // State untuk bahasa
+  const [showLocationPicker, setShowLocationPicker] = useState(false) // State untuk manual location picker
   
   // Hooks untuk tema dan toast
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
+
+  // Function untuk translate prayer names
+  const getPrayerName = (key) => {
+    const prayerMap = {
+      'subuh': 'fajr',
+      'dzuhur': 'dhuhr', 
+      'ashar': 'asr',
+      'maghrib': 'maghrib',
+      'isya': 'isha'
+    }
+    return t(prayerMap[key] || key, currentLang)
+  }
 
   // Efek untuk update waktu setiap detik
   useEffect(() => {
@@ -99,131 +114,208 @@ function App() {
     }
   }, [])
 
-  // Fungsi untuk mendapatkan lokasi pengguna
+  // Fungsi untuk mendapatkan lokasi pengguna - GPS sebagai prioritas utama
   const dapatkanLokasi = async (showToast = true) => {
     setLoading(true)
     setSumberLokasi('loading')
     
-    // Tampilkan toast untuk memberi tahu pengguna tentang permintaan lokasi
+    console.log('🔍 Memulai deteksi lokasi dengan GPS sebagai prioritas...')
+    
+    // Tampilkan toast untuk memberi tahu pengguna tentang permintaan lokasi GPS
     if (showToast) {
       toast({
-        title: "Meminta izin lokasi",
-        description: "Silakan izinkan akses lokasi untuk hasil yang akurat",
+        title: t('detectingLocation', currentLang),
+        description: t('locationPermission', currentLang),
       })
     }
     
-    // Coba dapatkan lokasi dari Geolocation API
+    // Strategy 1: PRIORITAS UTAMA - GPS/Geolocation API (meminta permission)
+    // Cek apakah browser dan environment mendukung geolocation
     if (navigator.geolocation) {
       try {
-        // Buat Promise untuk menangani getCurrentPosition dengan timeout yang lebih lama
+        console.log('🌍 Meminta izin GPS geolocation...')
+        console.log('📱 User Agent:', navigator.userAgent);
+        console.log('🔒 Protocol:', window.location.protocol);
+        console.log('🌐 Host:', window.location.host);
+        
+        // Cek apakah ini HTTPS atau localhost (geolocation requirements)
+        const isSecureContext = window.isSecureContext || 
+          window.location.protocol === 'https:' || 
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1';
+        
+        console.log('🔐 Is Secure Context:', isSecureContext);
+        
+        if (!isSecureContext) {
+          console.warn('⚠️ Geolocation mungkin tidak bekerja di HTTP pada mobile browser');
+          
+          // Untuk mobile di HTTP, langsung skip ke IP geolocation
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          if (isMobile) {
+            console.log('📱 Mobile browser di HTTP terdeteksi, skip ke IP geolocation');
+            throw new Error('Mobile HTTP context - skip to IP geolocation');
+          }
+        }
+        
+        // Buat Promise untuk menangani getCurrentPosition dengan timeout yang wajar
         const getPositionPromise = new Promise((resolve, reject) => {
+          console.log('🎯 Memulai getCurrentPosition request...');
+          
           navigator.geolocation.getCurrentPosition(
-            (position) => resolve(position),
-            (error) => reject(error),
+            (position) => {
+              console.log('✅ GPS berhasil:', position.coords);
+              console.log('📍 Lat:', position.coords.latitude, 'Lng:', position.coords.longitude);
+              console.log('🎯 Accuracy:', position.coords.accuracy, 'meters');
+              resolve(position);
+            },
+            (error) => {
+              console.error('❌ GPS error details:');
+              console.error('- Error code:', error.code);
+              console.error('- Error message:', error.message);
+              console.error('- Error PERMISSION_DENIED:', error.PERMISSION_DENIED);
+              console.error('- Error POSITION_UNAVAILABLE:', error.POSITION_UNAVAILABLE);  
+              console.error('- Error TIMEOUT:', error.TIMEOUT);
+              reject(error);
+            },
             { 
-              enableHighAccuracy: true, // Gunakan akurasi tinggi
-              timeout: 15000,          // Timeout 15 detik (lebih lama)
-              maximumAge: 0            // Selalu dapatkan posisi terbaru
+              enableHighAccuracy: true,  // Akurasi tinggi untuk hasil terbaik
+              timeout: 15000,           // Timeout 15 detik seperti versi sebelumnya
+              maximumAge: 300000        // Cache 5 menit untuk mengurangi permintaan berulang
             }
           );
         });
         
-        // Tunggu hasil dengan timeout yang lebih lama
         const position = await getPositionPromise;
+        const { latitude, longitude } = position.coords;
         
-        const { latitude, longitude } = position.coords
-        setLokasi({ latitude, longitude })
-        setSumberLokasi('gps')
+        setLokasi({ latitude, longitude });
+        setSumberLokasi('gps');
         
         // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat
-        dapatkanNamaLokasi(latitude, longitude)
+        dapatkanNamaLokasi(latitude, longitude);
         
         if (showToast) {
           toast({
-            title: "Lokasi ditemukan",
-            description: "Menggunakan GPS perangkat Anda",
-          })
-        }
-      } catch (error) {
-        console.warn("Geolocation error:", error)
-        // Fallback ke IP geolocation dengan mencoba beberapa API
-        try {
-          // Gunakan fungsi getLocationFromIP yang lebih handal
-          const ipData = await getLocationFromIP();
-          
-          if (ipData && ipData.latitude && ipData.longitude) {
-            const lat = parseFloat(ipData.latitude);
-            const lng = parseFloat(ipData.longitude);
-            
-            setLokasi({ 
-              latitude: lat, 
-              longitude: lng 
-            });
-            setSumberLokasi('ip');
-            
-            // Jika data memiliki informasi kota dan negara, gunakan itu
-            if (ipData.city && ipData.country) {
-              setNamaLokasi(`${ipData.city}, ${ipData.country}`);
-              // Jika sudah mendapatkan nama lokasi, tidak perlu memanggil dapatkanNamaLokasi
-            } else {
-              // Dapatkan nama lokasi dan zona waktu berdasarkan koordinat jika tidak ada di respons API
-              dapatkanNamaLokasi(lat, lng);
-            }
-            
-            // Jika data memiliki informasi timezone, gunakan itu
-            if (ipData.timezone) {
-              setZonaWaktu(ipData.timezone);
-            } else {
-              // Dapatkan zona waktu berdasarkan koordinat jika tidak ada di respons API
-              dapatkanZonaWaktu(lat, lng);
-            }
-            
-            if (showToast) {
-              toast({
-                title: "Menggunakan lokasi berdasarkan IP",
-                description: "Izinkan akses lokasi untuk hasil yang lebih akurat",
-              });
-            }
-          } else {
-            throw new Error('Tidak dapat mendapatkan lokasi dari IP');
-          }
-        } catch (ipError) {
-          console.error("IP Geolocation error:", ipError);
-          // Fallback ke lokasi default (Jakarta)
-          setLokasi({ 
-            latitude: -6.2088, 
-            longitude: 106.8456 
+            title: t('locationFound', currentLang),
+            description: t('usingGPS', currentLang),
           });
-          setSumberLokasi('default');
-          setNamaLokasi('Jakarta, Indonesia');
-          setZonaWaktu('Asia/Jakarta');
+        }
+        
+        setLoading(false);
+        return; // Sukses, keluar dari fungsi
+        
+      } catch (gpsError) {
+        console.warn('⚠️ GPS geolocation gagal:', gpsError);
+        
+        // Tampilkan pesan yang informatif berdasarkan error GPS
+        if (showToast && gpsError.code) {
+          let errorMessage = t('locationPermission', currentLang);
           
-          if (showToast) {
-            toast({
-              title: "Menggunakan lokasi default",
-              description: "Lokasi diatur ke Jakarta",
-              variant: "destructive"
-            });
+          if (gpsError.code === 1) { // PERMISSION_DENIED
+            errorMessage = 'Akses lokasi ditolak. Mencoba metode alternatif...';
+          } else if (gpsError.code === 2) { // POSITION_UNAVAILABLE
+            errorMessage = 'GPS tidak tersedia. Mencoba metode alternatif...';
+          } else if (gpsError.code === 3) { // TIMEOUT
+            errorMessage = 'Timeout GPS. Mencoba metode alternatif...';
           }
+          
+          // Untuk mobile di HTTP, tampilkan pesan khusus HTTPS
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost';
+          
+          if (isMobile && isHttp) {
+            errorMessage = 'Mobile browser memerlukan HTTPS untuk GPS. Menggunakan IP location...';
+          }
+          
+          toast({
+            title: t('detectingLocation', currentLang),
+            description: errorMessage,
+            variant: "destructive"
+          });
         }
       }
     } else {
-      // Browser tidak mendukung Geolocation
-      setLokasi({ 
-        latitude: -6.2088, 
-        longitude: 106.8456 
-      })
-      setSumberLokasi('default')
-      setNamaLokasi('Jakarta, Indonesia')
-      setZonaWaktu('Asia/Jakarta')
+      console.warn('⚠️ Browser tidak mendukung Geolocation API');
+      
       if (showToast) {
         toast({
-          title: "Geolocation tidak didukung",
-          description: "Browser Anda tidak mendukung geolocation",
+          title: t('errorGeolocation', currentLang),
+          description: 'Browser tidak mendukung GPS. Mencoba metode alternatif...',
           variant: "destructive"
-        })
+        });
       }
     }
+    
+    // Strategy 2: Fallback ke IP geolocation jika GPS gagal
+    try {
+      console.log('📡 GPS gagal, mencoba IP geolocation sebagai fallback...')
+      const ipData = await getLocationFromIP();
+      
+      if (ipData && ipData.latitude && ipData.longitude) {
+        const lat = parseFloat(ipData.latitude);
+        const lng = parseFloat(ipData.longitude);
+        
+        console.log('✅ IP geolocation berhasil:', lat, lng)
+        
+        setLokasi({ 
+          latitude: lat, 
+          longitude: lng 
+        });
+        setSumberLokasi('ip');
+        
+        // Set nama lokasi dan timezone dari IP data
+        if (ipData.city && ipData.country) {
+          setNamaLokasi(`${ipData.city}, ${ipData.country}`);
+        }
+        if (ipData.timezone) {
+          setZonaWaktu(ipData.timezone);
+        }
+        
+        // Coba ambil nama lokasi yang lebih detail dari koordinat
+        dapatkanNamaLokasi(lat, lng);
+        
+        if (showToast) {
+          toast({
+            title: t('locationFound', currentLang),
+            description: t('usingIP', currentLang),
+          });
+        }
+        
+        setLoading(false);
+        return; // Sukses, keluar dari fungsi
+      }
+    } catch (ipError) {
+      console.warn('⚠️ IP geolocation juga gagal:', ipError);
+    }
+    
+    // Strategy 3: Fallback terakhir ke lokasi default Jakarta (selalu berhasil)
+    console.log('🏠 Semua metode gagal, menggunakan lokasi default Jakarta');
+    
+    setLokasi({ 
+      latitude: -6.2088, 
+      longitude: 106.8456 
+    });
+    setSumberLokasi('default');
+    setNamaLokasi('Jakarta, Indonesia');
+    setZonaWaktu('Asia/Jakarta');
+    
+    // Set prayer method untuk Indonesia
+    const methodInfo = {
+      method: 20, // Kemenag RI
+      name: "Kementerian Agama Republik Indonesia",
+      description: "Used in Indonesia",
+      source: "country-specific"
+    };
+    setPrayerMethod(methodInfo);
+    
+    if (showToast) {
+      toast({
+        title: t('usingDefault', currentLang),
+        description: "Jakarta, Indonesia",
+      });
+    }
+    
+    setLoading(false);
   }
 
   // Fungsi untuk mendapatkan jadwal sholat dari API
@@ -267,8 +359,8 @@ function App() {
     } catch (error) {
       console.error("Error fetching prayer times:", error)
       toast({
-        title: "Gagal mendapatkan jadwal sholat",
-        description: "Silakan coba lagi nanti",
+        title: t('errorLoading', currentLang),
+        description: t('errorTryAgain', currentLang),
         variant: "destructive"
       })
       setLoading(false)
@@ -397,8 +489,8 @@ function App() {
     
     // Tampilkan toast untuk konfirmasi
     toast({
-      title: `Tema ${newTheme === 'dark' ? 'Gelap' : 'Terang'} diaktifkan`,
-      description: "Tampilan telah diperbarui",
+      title: `${newTheme === 'dark' ? t('darkMode', currentLang) : t('lightMode', currentLang)} ${t('activated', currentLang)}`,
+      description: t('displayUpdated', currentLang),
     });
     
     // Tidak perlu reload halaman, cukup perbarui state
@@ -408,6 +500,22 @@ function App() {
   // Fungsi untuk memuat ulang data
   const refreshData = () => {
     dapatkanLokasi()
+  }
+
+  // Fungsi untuk set lokasi manual
+  const setLokasiManual = (latitude, longitude, namaLokasi) => {
+    setLokasi({ latitude, longitude });
+    setSumberLokasi('manual');
+    setNamaLokasi(namaLokasi);
+    setShowLocationPicker(false);
+    
+    // Dapatkan nama lokasi yang lebih detail dan prayer method
+    dapatkanNamaLokasi(latitude, longitude);
+    
+    toast({
+      title: t('locationFound', currentLang),
+      description: `Manual: ${namaLokasi}`,
+    });
   }
 
   // Fungsi untuk memformat waktu dengan zona waktu yang benar
@@ -421,7 +529,7 @@ function App() {
       timeZone: zonaWaktu || Intl.DateTimeFormat().resolvedOptions().timeZone
     };
     
-    return date.toLocaleTimeString('id-ID', options);
+    return formatLocalizedTime(date, currentLang, options);
   }
 
   // Fungsi untuk memformat tanggal dengan zona waktu yang benar
@@ -435,7 +543,7 @@ function App() {
       timeZone: zonaWaktu || Intl.DateTimeFormat().resolvedOptions().timeZone
     };
     
-    return date.toLocaleDateString('id-ID', options);
+    return formatLocalizedDate(date, currentLang, options);
   }
   
   // Fungsi untuk mendapatkan nama lokasi dan country info berdasarkan koordinat
@@ -602,8 +710,8 @@ function App() {
               <Clock className="h-8 w-8 text-primary animate-spin-slow" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-2">Global Prayer Times</h1>
-          <p className="text-muted-foreground">Loading prayer schedule for your location...</p>
+          <h1 className="text-2xl font-bold mb-2">{t('splashTitle', currentLang)}</h1>
+          <p className="text-muted-foreground">{t('splashSubtitle', currentLang)}</p>
         </div>
       </div>
     );
@@ -614,7 +722,7 @@ function App() {
       <div className="w-full max-w-md animate-fadeIn">
         <Card className="w-full shadow-lg border border-primary/20 animate-glow overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Global Prayer Times</CardTitle>
+            <CardTitle>{t('cardTitle', currentLang)}</CardTitle>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="icon" onClick={refreshData}>
                 <RefreshCw className="h-5 w-5" />
@@ -655,7 +763,7 @@ function App() {
                   <span className="font-medium">
                     {namaLokasi || (lokasi ? `${lokasi.latitude.toFixed(4)}, ${lokasi.longitude.toFixed(4)}` : 'Lokasi tidak tersedia')} 
                     <span className="text-xs text-muted-foreground ml-1 bg-secondary/50 px-1.5 py-0.5 rounded-full">
-                      {sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : 'Default'}
+                      {sumberLokasi === 'gps' ? 'GPS' : sumberLokasi === 'ip' ? 'IP' : sumberLokasi === 'manual' ? 'Manual' : 'Default'}
                     </span>
                   </span>
                   {/* Tampilkan koordinat di bawah nama lokasi */}
@@ -670,6 +778,13 @@ function App() {
                       {zonaWaktu.replace('_', ' ')}
                     </span>
                   )}
+                  {/* Tombol untuk pilih lokasi manual */}
+                  <button 
+                    onClick={() => setShowLocationPicker(true)}
+                    className="text-xs text-primary hover:text-primary/80 mt-1 underline"
+                  >
+                    Ubah Lokasi
+                  </button>
                 </div>
               )}
             </div>
@@ -683,7 +798,7 @@ function App() {
             ) : sholatBerikutnya && (
               <div className="mb-6 text-center animate-slideUp" style={{animationDelay: '300ms'}}>
                 <h3 className="text-lg font-medium mb-1">
-                  {sholatBerikutnya.charAt(0).toUpperCase() + sholatBerikutnya.slice(1)} dalam
+                  {getPrayerName(sholatBerikutnya)} {t('nextPrayer', currentLang)}
                 </h3>
                 <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary via-green-400 to-primary bg-[length:200%_auto] animate-gradient animate-pulse">
                   {countdown}
@@ -715,7 +830,7 @@ function App() {
                     >
                       <span className="font-medium capitalize flex items-center">
                         <PrayerIcon prayerType={key} />
-                        {key}
+                        {getPrayerName(key)}
                       </span>
                       <span className={`${sholatBerikutnya === key ? 'font-bold text-primary' : ''} bg-background/80 px-2 py-0.5 rounded`}>
                         {time}
@@ -725,7 +840,7 @@ function App() {
                 </>
               ) : (
                 <div className="text-center text-muted-foreground p-4 border border-dashed rounded-md">
-                  Tidak dapat memuat jadwal sholat
+                  {t('errorLoading', currentLang)}
                 </div>
               )}
             </div>
@@ -734,25 +849,112 @@ function App() {
             <div className="mt-6 text-center text-xs text-muted-foreground animate-slideUp" style={{animationDelay: '950ms'}}>
               <div className="flex items-center justify-center mb-1">
                 <svg className="w-4 h-4 mr-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                <span>Waktu Solat Global © 2025</span>
+                <span>{t('copyright', currentLang)}</span>
               </div>
               <div className="text-primary/70 font-medium">
                 {prayerMethod ? (
                   <>
-                    Using {formatMethodDisplay(prayerMethod, countryInfo?.countryName)}
+                    {t('usingMethod', currentLang)} {formatMethodDisplay(prayerMethod, countryInfo?.countryName)}
                     {countryInfo && (
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {countryInfo.continent} • Method {prayerMethod.method}
+                        {countryInfo.continent} • {t('method', currentLang)} {prayerMethod.method}
                       </div>
                     )}
                   </>
                 ) : (
-                  'Calculating prayer method for your location...'
+                  t('loadingText', currentLang)
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
+        
+        {/* Location Picker Modal */}
+        {showLocationPicker && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md max-h-[80vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                  Pilih Lokasi
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowLocationPicker(false)}
+                  >
+                    ✕
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Kota-kota populer Indonesia */}
+                <div>
+                  <h4 className="font-medium mb-2">Indonesia</h4>
+                  <div className="space-y-1">
+                    {[
+                      { nama: 'Jakarta', lat: -6.2088, lng: 106.8456 },
+                      { nama: 'Surabaya', lat: -7.2575, lng: 112.7521 },
+                      { nama: 'Bandung', lat: -6.9175, lng: 107.6191 },
+                      { nama: 'Medan', lat: 3.5952, lng: 98.6722 },
+                      { nama: 'Semarang', lat: -6.9667, lng: 110.4167 },
+                      { nama: 'Makassar', lat: -5.1477, lng: 119.4327 },
+                      { nama: 'Palembang', lat: -2.9761, lng: 104.7754 },
+                      { nama: 'Yogyakarta', lat: -7.7956, lng: 110.3695 }
+                    ].map((kota) => (
+                      <button
+                        key={kota.nama}
+                        onClick={() => setLokasiManual(kota.lat, kota.lng, `${kota.nama}, Indonesia`)}
+                        className="w-full text-left p-2 hover:bg-secondary rounded text-sm"
+                      >
+                        {kota.nama}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Kota-kota internasional populer */}
+                <div>
+                  <h4 className="font-medium mb-2">International</h4>
+                  <div className="space-y-1">
+                    {[
+                      { nama: 'Mecca, Saudi Arabia', lat: 21.4225, lng: 39.8262 },
+                      { nama: 'Medina, Saudi Arabia', lat: 24.4539, lng: 39.6040 },
+                      { nama: 'Kuala Lumpur, Malaysia', lat: 3.1390, lng: 101.6869 },
+                      { nama: 'Singapore', lat: 1.3521, lng: 103.8198 },
+                      { nama: 'Bangkok, Thailand', lat: 13.7563, lng: 100.5018 },
+                      { nama: 'London, UK', lat: 51.5074, lng: -0.1278 },
+                      { nama: 'New York, USA', lat: 40.7128, lng: -74.0060 },
+                      { nama: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503 },
+                      { nama: 'Dubai, UAE', lat: 25.2048, lng: 55.2708 },
+                      { nama: 'Istanbul, Turkey', lat: 41.0082, lng: 28.9784 }
+                    ].map((kota) => (
+                      <button
+                        key={kota.nama}
+                        onClick={() => setLokasiManual(kota.lat, kota.lng, kota.nama)}
+                        className="w-full text-left p-2 hover:bg-secondary rounded text-sm"
+                      >
+                        {kota.nama}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Tombol coba deteksi otomatis lagi */}
+                <div className="pt-3 border-t">
+                  <Button 
+                    onClick={() => {
+                      setShowLocationPicker(false);
+                      dapatkanLokasi();
+                    }}
+                    variant="outline" 
+                    className="w-full"
+                  >
+                    🔄 Coba Deteksi Otomatis Lagi
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,22 +1,32 @@
-# Waktu Solat AkbarTK - Aplikasi Jadwal Sholat
+# Global Prayer Times - Aplikasi Waktu Sholat Sedunia 🌍
 
-Aplikasi jadwal sholat yang menyediakan waktu sholat Islam yang akurat berdasarkan lokasi real-time pengguna. Aplikasi ini dirancang untuk 100% dinamis tanpa nilai hardcode untuk fleksibilitas dan akurasi maksimal.
+Aplikasi jadwal sholat global yang menyediakan waktu sholat Islam yang akurat untuk seluruh dunia berdasarkan lokasi real-time pengguna. Aplikasi ini mendukung internasionalisasi (i18n) dengan 4 bahasa dan metode perhitungan sholat yang sesuai dengan wilayah masing-masing.
 
-## Pembaruan Terbaru (27 Mei 2025)
+## 🚀 Pembaruan Terbaru (Juni 2025)
 
-- Konfigurasi port diubah untuk menghindari konflik dengan layanan lain
-- Aplikasi sekarang berjalan di port 3030 untuk akses web
-- API server berjalan di port 3005
-- Perbaikan proses deployment untuk memastikan file build disalin ke direktori yang benar
-- Peningkatan keamanan dengan penambahan header security di konfigurasi nginx
+### ✨ Fitur Baru
+- **🌐 Internasionalisasi (i18n)** - Dukungan 4 bahasa: Indonesia, English, 日本語, العربية
+- **📱 Mobile GPS Support** - HTTPS geolocation untuk popup permission di mobile
+- **🗺️ Global Prayer Methods** - 23+ metode perhitungan sholat sesuai negara/wilayah
+- **📍 Manual Location Picker** - Pilihan lokasi manual untuk 20+ kota populer
+- **🔄 Smart Fallback System** - GPS → IP Geolocation → Manual → Default
 
-## Akses Aplikasi Online
+### 🔧 Perbaikan
+- **HTTPS Support** untuk mobile geolocation requirement
+- **Enhanced Error Handling** dengan pesan yang informatif
+- **Robust IP Geolocation** dengan 6 API fallback
+- **Browser Language Detection** otomatis mengikuti bahasa device
 
-Aplikasi ini dapat diakses secara online melalui:
+## 🌐 Akses Aplikasi
 
+### HTTP (Development/Desktop)
 **🌐 [http://localhost:3030](http://localhost:3030)**
 
-API server berjalan di: **[http://localhost:3005](http://localhost:3005)**
+### HTTPS (Production/Mobile) 
+**🔒 [https://localhost:3443](https://localhost:3443)**
+> Diperlukan untuk GPS permission di mobile browser
+
+**API Server**: [http://localhost:3005](http://localhost:3005)
 
 ## Tampilan Aplikasi
 
@@ -46,47 +56,88 @@ Aplikasi juga mendukung mode terang yang dapat diaktifkan dengan mengklik tombol
 - Tombol refresh untuk memperbarui data
 - Toggle switch untuk beralih antara mode gelap dan terang
 
-## Fitur Utama
+## 🎯 Fitur Utama
 
-- **Deteksi Lokasi Otomatis** dengan 3 tingkat fallback (GPS → IP → Default)
-- **Jadwal Sholat Dinamis** berdasarkan koordinat lokasi
-- **Konversi Tanggal Hijriah** secara real-time
-- **Tema Gelap/Terang** dengan persistensi
-- **Tampilan Responsif** untuk semua ukuran layar
-- **Loading States** dengan komponen Skeleton
-- **Penanganan Error** dengan Toast notifications
+### 🌍 Global Support
+- **🗺️ Worldwide Prayer Times** - Mendukung seluruh dunia dengan metode perhitungan yang tepat
+- **🕌 23+ Prayer Calculation Methods** - Sesuai dengan standar negara/wilayah masing-masing
+- **🌐 4 Languages Support** - Indonesia, English, Japanese (日本語), Arabic (العربية)
+- **🔄 Auto Language Detection** - Mengikuti bahasa browser/device pengguna
 
-## Teknologi yang Digunakan
+### 📍 Location Detection
+- **🛰️ GPS Geolocation** - Prioritas utama dengan popup permission
+- **🌐 IP Geolocation** - 6 API fallback untuk akurasi tinggi
+- **📍 Manual Location Picker** - 20+ kota populer Indonesia & internasional
+- **🏠 Smart Default** - Jakarta sebagai fallback terakhir
 
-- **React** dengan hooks (useState, useEffect)
-- **Tailwind CSS** untuk styling
-- **shadcn/ui** untuk komponen UI yang konsisten dan accessible
-- **Vite** untuk bundling
-- **Docker** dan **Docker Compose** untuk containerized development dan deployment
+### 🎨 User Experience  
+- **📱 Mobile-First Design** - Optimized untuk semua device
+- **🌙 Dark/Light Theme** - Auto-switching dengan persistensi
+- **⚡ Real-time Updates** - Jam, countdown, dan status sholat
+- **🔔 Smart Notifications** - Toast messages yang informatif
+- **♿ Accessibility Ready** - Komponen yang accessible
 
-## Cara Menjalankan
+### 🛡️ Reliability
+- **🔒 HTTPS Support** - Untuk mobile geolocation requirement
+- **🔄 Robust Fallback** - 4-layer location detection strategy
+- **⚠️ Error Handling** - Graceful handling dengan recovery options
+- **📊 Debug Logging** - Comprehensive logging untuk troubleshooting
 
-### Menggunakan Docker (Direkomendasikan)
+## 🛠️ Teknologi yang Digunakan
 
-1. Pastikan Docker dan Docker Compose sudah terinstal di sistem Anda
-2. Clone repositori ini
-3. Salin file `.env.example` menjadi `.env`:
+### Frontend
+- **⚛️ React 18** - Modern hooks (useState, useEffect)
+- **🎨 Tailwind CSS** - Utility-first styling
+- **🧩 shadcn/ui** - High-quality accessible components
+- **⚡ Vite** - Fast build tool dan development server
+- **🌐 i18n** - Custom internationalization system
 
-```bash
-cp .env.example .env
-```
+### Backend & Infrastructure
+- **🐳 Docker & Docker Compose** - Containerized deployment
+- **🌐 Nginx** - Web server dan reverse proxy dengan SSL
+- **🔒 SSL/TLS** - HTTPS support dengan self-signed certificates
+- **🔄 CORS Proxy** - Multiple fallback untuk API access
 
-4. Jalankan aplikasi dalam mode development:
+### APIs & External Services
+- **🕌 AlAdhan API** - Prayer times dan Hijri date conversion
+- **📍 Multiple IP Geolocation APIs** - ipapi.co, ipinfo.io, ipwhois.app, dll
+- **🗺️ OpenStreetMap Nominatim** - Reverse geocoding untuk nama lokasi
+- **⏰ WorldTimeAPI** - Timezone detection fallback
 
-```bash
-./scripts/start-dev.sh
-```
+## 🚀 Cara Menjalankan
 
-5. Atau jalankan dalam mode production:
+### 🐳 Menggunakan Docker (Direkomendasikan)
 
-```bash
-./scripts/deploy-production.sh
-```
+1. **Prerequisites**
+   ```bash
+   # Pastikan Docker dan Docker Compose terinstal
+   docker --version
+   docker compose version
+   ```
+
+2. **Clone & Setup**
+   ```bash
+   git clone https://github.com/username/09-WaktuSolat2.git
+   cd 09-WaktuSolat2
+   cp .env.example .env
+   ```
+
+3. **Jalankan Aplikasi**
+   ```bash
+   # Development mode
+   ./scripts/start-dev.sh
+   
+   # Production mode  
+   ./scripts/deploy-production.sh
+   
+   # Atau manual
+   docker compose up -d
+   ```
+
+4. **Akses Aplikasi**
+   - **HTTP**: http://localhost:3030
+   - **HTTPS**: https://localhost:3443 (untuk mobile testing)
+   - **API**: http://localhost:3005
 
 ### Arsitektur Kontainerisasi
 
@@ -98,14 +149,15 @@ Aplikasi ini menggunakan pendekatan kontainerisasi penuh dengan Docker:
 
 Konfigurasi kontainerisasi dapat dilihat di file `docker-compose.yml` dan `Dockerfile.prod`.
 
-### Port yang Digunakan
+### 🌐 Port Configuration
 
-Aplikasi ini menggunakan port berikut:
+| Service | Protocol | Port | Purpose |
+|---------|----------|------|---------|
+| **Web App** | HTTP | 3030 | Development/Desktop access |
+| **Web App** | HTTPS | 3443 | Production/Mobile access |
+| **API Server** | HTTP | 3005 | Backend API services |
 
-- **3030**: Port untuk akses web (HTTP)
-- **3005**: Port untuk API server
-
-Port ini dapat dikonfigurasi melalui file `.env` jika diperlukan.
+> Port dapat dikonfigurasi melalui environment variables di file `.env`
 
 ### Tanpa Docker
 
@@ -153,48 +205,145 @@ Atau, Anda bisa menggunakan GitHub Actions yang sudah dikonfigurasi. Setiap kali
 npm run build
 ```
 
-## API yang Digunakan
+## 🔌 API Integration
 
-- **AlAdhan API** untuk jadwal sholat dan konversi tanggal Hijriah
-- **IP Geolocation API** sebagai fallback untuk deteksi lokasi
+### 🕌 Prayer Times & Islamic Calendar
+- **[AlAdhan API](https://aladhan.com/prayer-times-api)** - Primary prayer times calculation
+- **23+ Calculation Methods** - Country-specific prayer methods
+- **Hijri Date Conversion** - Accurate Islamic calendar
 
-## Struktur Proyek
+### 📍 Location Detection APIs
+| API | Purpose | Fallback Level |
+|-----|---------|----------------|
+| **Navigator.geolocation** | GPS location | Primary |
+| **ipapi.co** | IP geolocation | 1st fallback |
+| **ipinfo.io** | IP geolocation | 2nd fallback |
+| **ipwhois.app** | IP geolocation | 3rd fallback |
+| **ipwho.is** | IP geolocation | 4th fallback |
+| **freegeoip.app** | IP geolocation | 5th fallback |
+| **Manual Selection** | User choice | Last resort |
+
+### 🗺️ Geocoding & Timezone
+- **OpenStreetMap Nominatim** - Reverse geocoding untuk nama lokasi
+- **TimeZoneDB API** - Timezone detection (dengan API key)
+- **GeoNames API** - Alternative timezone detection
+- **WorldTimeAPI** - Timezone fallback
+
+## 📁 Struktur Proyek
 
 ```
-jadwal-sholat/
-├── docker-compose.yml        # Konfigurasi Docker Compose untuk production
-├── docker-compose.dev.yml    # Konfigurasi Docker Compose untuk development
-├── Dockerfile.dev            # Dockerfile untuk development
-├── Dockerfile.prod           # Dockerfile untuk production
-├── nginx.conf                # Konfigurasi Nginx untuk production
-├── volumes/                  # Volume Docker untuk persistensi data
-├── scripts/                  # Script untuk menjalankan aplikasi
-├── src/                      # Source code React
-│   ├── components/           # Komponen React
-│   ├── hooks/                # Custom hooks
-│   ├── utils/                # Fungsi utilitas
-│   └── App.jsx               # Komponen utama aplikasi
-└── public/                   # Aset statis
+global-prayer-times/
+├── 🐳 Docker Configuration
+│   ├── docker-compose.yml           # Production containerization
+│   ├── Dockerfile.direct            # Direct deployment dockerfile
+│   └── nginx.conf                   # Nginx dengan HTTP/HTTPS support
+├── 🔧 Configuration & Scripts
+│   ├── .env.example                 # Environment template
+│   ├── vite.config.js              # Vite build configuration
+│   └── volumes/                     # Docker persistent volumes
+│       ├── dist/                    # Production build output
+│       └── ssl/                     # SSL certificates untuk HTTPS
+├── 📱 Source Code
+│   ├── src/
+│   │   ├── App.jsx                  # Main application component
+│   │   ├── components/
+│   │   │   ├── ui/                  # shadcn/ui components
+│   │   │   ├── prayer/              # Prayer-specific components
+│   │   │   └── theme-provider.jsx   # Dark/light theme provider
+│   │   └── utils/
+│   │       ├── i18n.js             # Internationalization system
+│   │       ├── globalPrayerMethods.js # Global prayer calculations
+│   │       └── cors-proxy.js        # API proxy dengan fallback
+├── 🌍 Internationalization
+│   └── src/utils/i18n.js           # 4 languages support
+└── 📄 Documentation
+    ├── README.md                    # This comprehensive guide
+    └── screenshots/                 # Application screenshots
 ```
 
-## Checklist Testing
+## ✅ Testing Checklist
 
-- [✔] Test dalam development container (docker-compose.dev.yml)
-- [✔] Test dalam production container (docker-compose.yml)
-- [✔] Test dengan izin GPS diberikan
-- [✔] Test dengan izin GPS ditolak
-- [✔] Test dengan koneksi jaringan terputus
-- [✔] Test di berbagai timezone
-- [✔] Test transisi waktu sholat
-- [✔] Test desain responsif di berbagai ukuran layar
-- [✔] Test dark mode dan light mode
-- [✔] Test accessibility
-- [✔] Test skenario fallback API
+### 🐳 Container Testing
+- [✔] Docker development environment
+- [✔] Docker production deployment  
+- [✔] HTTP (port 3030) accessibility
+- [✔] HTTPS (port 3443) dengan SSL
+- [✔] Nginx reverse proxy functionality
 
-## Kontribusi
+### 📍 Location Detection Testing
+- [✔] GPS permission popup (HTTPS)
+- [✔] GPS permission grant → accurate location
+- [✔] GPS permission deny → IP fallback
+- [✔] IP geolocation dengan multiple APIs
+- [✔] Manual location picker functionality
+- [✔] Default Jakarta fallback
 
-Kontribusi selalu diterima dengan senang hati. Silakan buat pull request atau issue jika Anda ingin berkontribusi.
+### 🌍 Internationalization Testing
+- [✔] Browser language detection (auto)
+- [✔] Indonesian language interface
+- [✔] English language interface  
+- [✔] Japanese language interface
+- [✔] Arabic language interface (RTL ready)
+- [✔] Prayer name translations
+- [✔] Date/time localization
 
-## Lisensi
+### 📱 Device & Browser Testing
+- [✔] Mobile browser (iOS Safari)
+- [✔] Mobile browser (Android Chrome)
+- [✔] Desktop browser (Chrome/Firefox/Safari)
+- [✔] Responsive design (320px - 2560px)
+- [✔] Dark mode / Light mode
+- [✔] Touch interactions
 
-MIT
+### 🕌 Prayer Times Testing
+- [✔] Global prayer methods (23+ countries)
+- [✔] Method auto-selection berdasarkan lokasi
+- [✔] Countdown ke sholat berikutnya
+- [✔] Transition detection waktu sholat
+- [✔] Hijri date conversion
+- [✔] Timezone handling
+
+### 🔄 Reliability Testing
+- [✔] Network disconnection handling
+- [✔] API fallback scenarios
+- [✔] Error recovery mechanisms
+- [✔] Loading states dan skeleton UI
+- [✔] Toast notification system
+
+## 🤝 Contributing
+
+Kontribusi selalu diterima dengan senang hati! Berikut cara berkontribusi:
+
+### 🔀 Pull Request Process
+1. **Fork** repositori ini
+2. **Create branch** untuk fitur/fix: `git checkout -b feature/amazing-feature`
+3. **Commit changes**: `git commit -m 'Add amazing feature'`
+4. **Push branch**: `git push origin feature/amazing-feature`
+5. **Open Pull Request** dengan deskripsi yang clear
+
+### 🐛 Bug Reports
+- Gunakan **Issues** untuk melaporkan bugs
+- Sertakan **langkah reproduksi** yang detail
+- Lampirkan **screenshots** jika memungkinkan
+- Mention **device/browser** yang digunakan
+
+### 💡 Feature Requests
+- Diskusikan **ide fitur** di Issues terlebih dahulu
+- Jelaskan **use case** dan **benefit** fitur tersebut
+- Pertimbangkan **impact** terhadap performa dan UX
+
+## 📊 Development Stats
+
+![GitHub last commit](https://img.shields.io/github/last-commit/username/09-WaktuSolat2)
+![GitHub issues](https://img.shields.io/github/issues/username/09-WaktuSolat2)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/username/09-WaktuSolat2)
+![GitHub code size](https://img.shields.io/github/languages/code-size/username/09-WaktuSolat2)
+
+## 📝 License
+
+**MIT License** - lihat file [LICENSE](LICENSE) untuk detail lengkap.
+
+---
+
+**🌍 Global Prayer Times** - Bringing accurate Islamic prayer schedules to Muslims worldwide  
+Made with ❤️ by the community | © 2025
