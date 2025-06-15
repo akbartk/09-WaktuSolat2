@@ -320,6 +320,7 @@ function App() {
 
   // Fungsi untuk mendapatkan jadwal sholat dari API
   const ambilJadwalSholat = async (lokasi) => {
+    console.log('🕌 ambilJadwalSholat dipanggil dengan lokasi:', lokasi);
     setLoading(true)
     try {
       // Format tanggal untuk API
@@ -328,21 +329,35 @@ function App() {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const yyyy = today.getFullYear()
       
+      console.log('📅 Tanggal untuk API:', `${dd}-${mm}-${yyyy}`);
+      
       // Determine calculation method berdasarkan lokasi
       let method = 3; // Default to Muslim World League
       if (prayerMethod && prayerMethod.method) {
         method = prayerMethod.method;
       }
       
+      console.log('⚙️ Prayer method yang digunakan:', method);
+      
       // Gunakan fetchWithFallback untuk AlAdhan API dengan method yang sesuai
       const apiUrl = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lokasi.latitude}&longitude=${lokasi.longitude}&method=${method}`
       
+      console.log('🌐 API URL:', apiUrl);
+      
       const data = await fetchWithFallback(apiUrl)
       
+      console.log('📊 Response data dari API:', data);
       console.log(`Using prayer calculation method ${method} for location:`, namaLokasi);
+      
+      // Periksa apakah data valid
+      if (!data || !data.data || !data.data.timings) {
+        throw new Error('Data API tidak valid atau kosong');
+      }
       
       // Ekstrak jadwal sholat dari respons
       const timings = data.data.timings
+      
+      console.log('⏰ Timings dari API:', timings);
       
       setJadwalSholat({
         subuh: timings.Fajr,
@@ -352,15 +367,23 @@ function App() {
         isya: timings.Isha
       })
       
+      console.log('✅ Jadwal sholat berhasil di-set');
+      
       // Hitung sholat berikutnya
       hitungSholatBerikutnya()
       
       setLoading(false)
     } catch (error) {
-      console.error("Error fetching prayer times:", error)
+      console.error("❌ Error fetching prayer times:", error)
+      console.error("Error details:", error.message);
+      
+      // PENTING: Jangan set jadwal sholat jika API gagal
+      // Biarkan jadwalSholat tetap null agar UI menampilkan pesan error
+      setJadwalSholat(null);
+      
       toast({
         title: t('errorLoading', currentLang),
-        description: t('errorTryAgain', currentLang),
+        description: `${t('errorTryAgain', currentLang)} - Pastikan koneksi internet stabil`,
         variant: "destructive"
       })
       setLoading(false)
@@ -840,7 +863,14 @@ function App() {
                 </>
               ) : (
                 <div className="text-center text-muted-foreground p-4 border border-dashed rounded-md">
-                  {t('errorLoading', currentLang)}
+                  <div className="mb-2">⚠️ {t('errorLoading', currentLang)}</div>
+                  <div className="text-sm">Tidak ada jadwal sholat tersedia. Silakan periksa koneksi internet dan coba lagi.</div>
+                  <button 
+                    onClick={refreshData}
+                    className="mt-2 text-primary hover:text-primary/80 text-sm underline"
+                  >
+                    🔄 Coba Lagi
+                  </button>
                 </div>
               )}
             </div>

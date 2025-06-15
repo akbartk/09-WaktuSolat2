@@ -63,7 +63,58 @@ export const corsProxy = async (url) => {
 
 // Fungsi helper untuk mencoba beberapa URL secara berurutan
 export const fetchWithFallback = async (url) => {
+  console.log('🔄 fetchWithFallback dimulai untuk URL:', url);
+  
+  // Strategy 1: Coba nginx proxy terlebih dahulu (untuk AlAdhan API)
+  if (url.includes('api.aladhan.com')) {
+    try {
+      console.log('🏠 Mencoba nginx proxy untuk AlAdhan API...');
+      const proxyUrl = url.replace('https://api.aladhan.com', `${window.location.origin}/api/aladhan`);
+      console.log('🔗 Proxy URL:', proxyUrl);
+      
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Nginx proxy berhasil untuk AlAdhan API');
+        return data;
+      } else {
+        console.warn('⚠️ Nginx proxy gagal, status:', response.status);
+      }
+    } catch (error) {
+      console.warn('❌ Nginx proxy error:', error.message);
+    }
+  }
+  
+  // Strategy 2: Coba direct request
   try {
+    console.log('🌐 Mencoba direct request...');
+    const response = await fetch(url, {
+      mode: 'cors',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': PRODUCTION_CONFIG.userAgent
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Direct request berhasil');
+      return data;
+    } else {
+      console.warn('⚠️ Direct request gagal, status:', response.status);
+    }
+  } catch (error) {
+    console.warn('❌ Direct request error:', error.message);
+  }
+  
+  // Strategy 3: Coba CORS proxy
+  try {
+    console.log('🔄 Mencoba CORS proxy...');
     const proxiedUrl = await corsProxy(url);
     const response = await fetch(proxiedUrl, {
       headers: {
@@ -77,11 +128,16 @@ export const fetchWithFallback = async (url) => {
     }
     
     const data = await response.json();
+    console.log('✅ CORS proxy berhasil');
     return data;
   } catch (error) {
-    console.error('Error fetching with proxy:', error.message);
-    // Kembalikan objek kosong sebagai fallback agar aplikasi tidak crash
-    return {};
+    console.error('❌ Semua strategi fetchWithFallback gagal:', error.message);
+    
+    // TIDAK ADA HARDCODE JAM - Return empty object untuk mencegah jadwal palsu
+    console.log('🚨 CRITICAL: API gagal, tidak akan menampilkan jadwal hardcode yang tidak akurat');
+    
+    // Throw error agar aplikasi tahu API benar-benar gagal
+    throw new Error(`Semua API gagal: ${error.message}`);
   }
 };
 

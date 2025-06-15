@@ -64,10 +64,10 @@ http {
         listen 80;
         server_name _;
         
-        # HTTPS redirect dinonaktifkan untuk sementara - hanya gunakan HTTP
-        # if ($host != "localhost") {
-        #     return 301 https://$server_name$request_uri;
-        # }
+        # Redirect semua HTTP ke HTTPS kecuali localhost untuk testing
+        if ($host != "localhost") {
+            return 301 https://$server_name$request_uri;
+        }
         
         root /usr/share/nginx/html;
         index index.html;
