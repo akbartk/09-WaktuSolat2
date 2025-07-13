@@ -1,6 +1,16 @@
 # Dockerfile.direct - Direct copy dari host dist
 FROM nginx:alpine
 
+# Install openssl untuk generate SSL certificate
+RUN apk add --no-cache openssl
+
+# Generate self-signed SSL certificate
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx-selfsigned.key \
+    -out /etc/nginx/ssl/nginx-selfsigned.crt \
+    -subj "/C=ID/ST=Jakarta/L=Jakarta/O=WaktuSolat/CN=localhost"
+
 # Copy built app directly from host
 COPY dist /usr/share/nginx/html
 

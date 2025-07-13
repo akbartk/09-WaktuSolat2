@@ -16,6 +16,8 @@ Aplikasi jadwal sholat global yang menyediakan waktu sholat Islam yang akurat un
 - **Enhanced Error Handling** dengan pesan yang informatif
 - **Robust IP Geolocation** dengan 6 API fallback
 - **Browser Language Detection** otomatis mengikuti bahasa device
+- **Optimized Container Architecture** - Removed redundant proxy-server container
+- **SSL Certificate Auto-generation** - Built into application container
 
 ## 🌐 Akses Aplikasi
 
@@ -124,30 +126,40 @@ Aplikasi juga mendukung mode terang yang dapat diaktifkan dengan mengklik tombol
 
 3. **Jalankan Aplikasi**
    ```bash
-   # Development mode
-   ./scripts/start-dev.sh
-   
-   # Production mode  
-   ./scripts/deploy-production.sh
-   
-   # Atau manual
+   # Jalankan semua container
    docker compose up -d
+   
+   # Cek status container
+   docker ps | grep waktusolat2
+   
+   # Lihat logs jika diperlukan
+   docker logs 09-waktusolat2-nginx-1
+   docker logs 09-waktusolat2-jadwal-sholat-app-1
    ```
 
 4. **Akses Aplikasi**
    - **HTTP**: http://localhost:3030
    - **HTTPS**: https://localhost:3443 (untuk mobile testing)
-   - **API**: http://localhost:3005
+   - **API Server**: http://localhost:3005
 
 ### Arsitektur Kontainerisasi
 
-Aplikasi ini menggunakan pendekatan kontainerisasi penuh dengan Docker:
+Aplikasi ini menggunakan arsitektur kontainerisasi yang telah dioptimalkan:
 
-- **Container Aplikasi**: Menjalankan aplikasi React dengan Vite
-- **Container Nginx**: Bertindak sebagai web server dan reverse proxy
-- **Persistent Volumes**: Untuk `node_modules`, `build`, dan `cache`
+- **Container jadwal-sholat-app**: Aplikasi utama dengan nginx built-in (port 3005)
+  - Menggunakan Dockerfile.direct untuk deployment yang efisien
+  - SSL certificate di-generate otomatis di dalam container
+  
+- **Container nginx**: Web server dan reverse proxy (port 3030/3443)
+  - Melayani static files dari volume shared
+  - Proxy API requests ke external services (AlAdhan, IPAPI, MyQuran)
+  - Support HTTP dan HTTPS dengan self-signed certificate
 
-Konfigurasi kontainerisasi dapat dilihat di file `docker-compose.yml` dan `Dockerfile.prod`.
+- **Persistent Volumes**: 
+  - `./volumes/dist`: Production build files
+  - `./volumes/ssl`: SSL certificates (optional, container generates its own)
+
+Konfigurasi kontainerisasi dapat dilihat di file `docker-compose.yml` dan `Dockerfile.direct`.
 
 ### 🌐 Port Configuration
 
